@@ -215,7 +215,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "http://localhost:4000/api/tenants"]
+      test: ["CMD", "curl", "-sSf", "-o", "/dev/null", "http://127.0.0.1:4000/"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -255,7 +255,7 @@ services:
       imgproxy:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/status"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5000/status"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -331,6 +331,7 @@ services:
       LOGFLARE_URL: http://localhost:4000
       NEXT_PUBLIC_ENABLE_LOGS: "false"
       NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+      HOSTNAME: 0.0.0.0
     networks:
       - talentgeenie-network
     depends_on:
@@ -338,6 +339,11 @@ services:
         condition: service_healthy
       meta:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/profile').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     labels:
       - "com.talentgeenie.service=studio"
 
@@ -376,7 +382,7 @@ services:
       - --main-service
       - /home/deno/functions/main
     healthcheck:
-      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "http://localhost:9000/main/health"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9000'"]
       interval: 10s
       timeout: 5s
       retries: 5
