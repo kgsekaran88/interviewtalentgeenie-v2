@@ -1,0 +1,55 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ias-platform'
+    environment: '${ENVIRONMENT}'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Application metrics
+  - job_name: 'ias-platform'
+    static_configs:
+      - targets: ['app:3000']
+    metrics_path: '/metrics'
+    
+  # ECS/Container metrics
+  - job_name: 'ecs-tasks'
+    ec2_sd_configs:
+      - region: ap-south-1
+        port: 3000
+        filters:
+          - name: tag:Project
+            values: 
+              - ias-platform
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance
+      - source_labels: [__meta_ec2_instance_id]
+        target_label: instance_id
+
+  # Database metrics (RDS)
+  - job_name: 'rds'
+    static_configs:
+      - targets: ['cloudwatch-exporter:9106']
+    
+  # Node exporter for system metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Redis/Cache metrics (if applicable)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']

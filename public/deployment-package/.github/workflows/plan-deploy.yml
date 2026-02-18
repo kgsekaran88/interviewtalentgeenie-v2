@@ -1,0 +1,142 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'infra/terraform/**'
+      - '.github/workflows/plan-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to plan'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Terraform Init
+        working-directory: ./infra/terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=ias-platform/${{ steps.env.outputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_STATE_LOCK_TABLE }}"
+
+      - name: Terraform Validate
+        working-directory: ./infra/terraform
+        run: terraform validate
+
+      - name: Terraform Format Check
+        working-directory: ./infra/terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Plan
+        working-directory: ./infra/terraform
+        run: |
+          terraform plan \
+            -var-file="environments/${{ steps.env.outputs.environment }}.tfvars" \
+            -out=tfplan \
+            -no-color
+
+      - name: Generate Plan Summary
+        working-directory: ./infra/terraform
+        run: |
+          terraform show -no-color tfplan > plan_output.txt
+          
+          # Extract resource counts
+          TO_ADD=$(grep "# .* will be created" plan_output.txt | wc -l)
+          TO_CHANGE=$(grep "# .* will be updated" plan_output.txt | wc -l)
+          TO_DESTROY=$(grep "# .* will be destroyed" plan_output.txt | wc -l)
+          
+          echo "## Terraform Plan Summary" > plan_summary.md
+          echo "" >> plan_summary.md
+          echo "**Environment:** ${{ steps.env.outputs.environment }}" >> plan_summary.md
+          echo "" >> plan_summary.md
+          echo "| Action | Count |" >> plan_summary.md
+          echo "|--------|-------|" >> plan_summary.md
+          echo "| 🟢 Create | ${TO_ADD} |" >> plan_summary.md
+          echo "| 🟡 Change | ${TO_CHANGE} |" >> plan_summary.md
+          echo "| 🔴 Destroy | ${TO_DESTROY} |" >> plan_summary.md
+          echo "" >> plan_summary.md
+          echo "<details><summary>📋 Full Plan Output</summary>" >> plan_summary.md
+          echo "" >> plan_summary.md
+          echo '```hcl' >> plan_summary.md
+          head -n 500 plan_output.txt >> plan_summary.md
+          echo '```' >> plan_summary.md
+          echo "</details>" >> plan_summary.md
+
+      - name: Comment PR with Plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('./infra/terraform/plan_summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: plan
+            });
+
+      - name: Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ steps.env.outputs.environment }}
+          path: |
+            infra/terraform/tfplan
+            infra/terraform/plan_output.txt
+          retention-days: 7
+
+      - name: Security Scan (tfsec)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: ./infra/terraform
+          soft_fail: true
+
+      - name: Cost Estimate
+        if: github.event_name == 'pull_request'
+        uses: infracost/actions/comment@v1
+        with:
+          path: infra/terraform/tfplan
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true

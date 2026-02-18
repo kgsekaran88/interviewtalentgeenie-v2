@@ -1,0 +1,100 @@
+version: '3.8'
+
+# Docker Compose configuration for running migrations
+# Use: docker-compose -f docker-compose.migration.yml up
+
+services:
+  # Migration runner service
+  migrate:
+    image: postgres:15-alpine
+    container_name: talentgeenie-migrate
+    environment:
+      - PGHOST=${DB_HOST:-db}
+      - PGPORT=${DB_PORT:-5432}
+      - PGDATABASE=${DB_NAME:-talentgeenie}
+      - PGUSER=${DB_USER:-postgres}
+      - PGPASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./supabase/migrations:/migrations:ro
+      - ./migrations:/migrations_custom:ro
+      - ./scripts/run-migrations.sh:/run-migrations.sh:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for database to be ready..."
+        until pg_isready -h $$PGHOST -p $$PGPORT -U $$PGUSER; do
+          sleep 2
+        done
+        echo "Database is ready. Running migrations..."
+
+        # Create tracking table
+        psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (
+          version VARCHAR(255) PRIMARY KEY,
+          applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          checksum VARCHAR(64)
+        );"
+
+        # Get applied migrations
+        APPLIED=$$(psql -t -c "SELECT version FROM schema_migrations" | tr -d ' ')
+
+        # Run pending migrations (sort by filename across both directories)
+        FILES=$$(ls -1 /migrations/*.sql /migrations_custom/*.sql 2>/dev/null | awk -F/ '{print $$NF "\t" $$0}' | sort | cut -f2)
+
+        for f in $$FILES; do
+          filename=$$(basename $$f)
+          version=$${filename%.sql}
+
+          if echo "$$APPLIED" | grep -q "$$version"; then
+            echo "⊘ Skipping (already applied): $$filename"
+          else
+            echo "▶ Applying: $$filename"
+
+            # Preflight: avoid CREATE OR REPLACE return-type conflicts for get_user_roles
+            if [ "$$filename" = "20251227000005_functions.sql" ]; then
+              echo "  Preflight: dropping public.get_user_roles(uuid) to avoid return type conflict"
+              psql -c "DROP FUNCTION IF EXISTS public.get_user_roles(uuid);" || true
+            fi
+
+            if psql -f "$$f"; then
+              psql -c "INSERT INTO schema_migrations (version) VALUES ('$$version')"
+              echo "✓ Applied: $$filename"
+            else
+              echo "✗ Failed: $$filename"
+              exit 1
+            fi
+          fi
+        done
+
+        echo "✓ All migrations complete!"
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # PostgreSQL database
+  db:
+    image: postgres:15-alpine
+    container_name: talentgeenie-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-talentgeenie}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - talentgeenie-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  talentgeenie-network:
+    driver: bridge

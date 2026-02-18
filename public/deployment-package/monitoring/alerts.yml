@@ -1,0 +1,150 @@
+groups:
+  - name: ias_platform_alerts
+    interval: 30s
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{status=~"5.."}[5m])
+            /
+            rate(http_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # Application down
+      - alert: ApplicationDown
+        expr: up{job="ias-platform"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Application is down"
+          description: "{{ $labels.instance }} has been down for more than 2 minutes"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time"
+          description: "95th percentile response time is {{ $value }}s (threshold: 2s)"
+
+      # Database connection issues
+      - alert: DatabaseConnectionErrors
+        expr: |
+          rate(database_connection_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection errors detected"
+          description: "{{ $value }} connection errors per second"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
+          ) / node_memory_MemTotal_bytes > 0.85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }} (threshold: 85%)"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% (threshold: 80%)"
+
+      # Disk space running low
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space running low"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining"
+
+      # Proctoring pipeline lag
+      - alert: ProctoringPipelineLag
+        expr: |
+          proctoring_processing_lag_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proctoring pipeline lag detected"
+          description: "Processing lag is {{ $value }}s (threshold: 300s)"
+
+      # Too many violations flagged
+      - alert: HighViolationRate
+        expr: |
+          rate(proctoring_violations_total[10m]) > 10
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "Unusually high violation rate"
+          description: "{{ $value }} violations per second being flagged"
+
+      # Storage approaching quota
+      - alert: StorageQuotaNearLimit
+        expr: |
+          (
+            storage_bucket_size_bytes
+            /
+            storage_bucket_quota_bytes
+          ) > 0.85
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Storage quota near limit"
+          description: "Storage at {{ $value | humanizePercentage }} of quota"
+
+      # Migration errors
+      - alert: MigrationErrors
+        expr: |
+          increase(migration_errors_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Migration errors detected"
+          description: "{{ $value }} migration errors in the last hour"
+
+      # SSL certificate expiring soon
+      - alert: SSLCertificateExpiringSoon
+        expr: |
+          (ssl_certificate_expiry_seconds - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "Certificate expires in {{ $value }} days"

@@ -1,0 +1,162 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      target_version:
+        description: 'Version to rollback to (e.g., v2.5.2)'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    
+    steps:
+      - name: Checkout code at target version
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_version }}
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-south-1' }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+      
+      - name: Terraform Init
+        working-directory: public/deployment-package/infra/terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION || 'ap-south-1' }}"
+      
+      - name: Get current ECS task definition
+        id: current_task
+        run: |
+          CURRENT_TASK=$(aws ecs describe-services \
+            --cluster ias-${{ inputs.environment }}-cluster \
+            --services ias-${{ inputs.environment }}-service \
+            --query 'services[0].taskDefinition' \
+            --output text)
+          echo "current_task=$CURRENT_TASK" >> $GITHUB_OUTPUT
+      
+      - name: Rollback database migrations (if any)
+        run: |
+          echo "⚠️  Manual verification required for database rollback"
+          echo "Current version: ${{ inputs.target_version }}"
+          echo "Please verify database migrations are compatible"
+      
+      - name: Build Docker image for rollback version
+        run: |
+          docker build -t ias-app:${{ inputs.target_version }} .
+          docker tag ias-app:${{ inputs.target_version }} \
+            ${{ secrets.ECR_REGISTRY }}/ias-app:${{ inputs.target_version }}
+      
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ vars.AWS_REGION || 'ap-south-1' }} | \
+            docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+      
+      - name: Push rollback image
+        run: |
+          docker push ${{ secrets.ECR_REGISTRY }}/ias-app:${{ inputs.target_version }}
+      
+      - name: Deploy rollback version
+        run: |
+          terraform apply \
+            -var-file="../../deployment-variables.yml" \
+            -var="container_image=${{ secrets.ECR_REGISTRY }}/ias-app:${{ inputs.target_version }}" \
+            -var="environment=${{ inputs.environment }}" \
+            -auto-approve
+        working-directory: public/deployment-package/infra/terraform
+      
+      - name: Wait for deployment to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster ias-${{ inputs.environment }}-cluster \
+            --services ias-${{ inputs.environment }}-service
+      
+      - name: Run smoke tests
+        working-directory: public/deployment-package/test-suite
+        run: |
+          npm install
+          npx playwright test --config=playwright.config.ts
+        env:
+          BASE_URL: ${{ vars.APP_URL }}
+      
+      - name: Verify rollback success
+        run: |
+          DEPLOYED_VERSION=$(aws ecs describe-task-definition \
+            --task-definition ias-${{ inputs.environment }}-app \
+            --query 'taskDefinition.containerDefinitions[0].image' \
+            --output text | cut -d':' -f2)
+          
+          if [ "$DEPLOYED_VERSION" = "${{ inputs.target_version }}" ]; then
+            echo "✅ Rollback successful to ${{ inputs.target_version }}"
+          else
+            echo "❌ Rollback verification failed"
+            exit 1
+          fi
+      
+      - name: Rollback failed - restore previous version
+        if: failure()
+        run: |
+          echo "Rolling back to previous task definition: ${{ steps.current_task.outputs.current_task }}"
+          aws ecs update-service \
+            --cluster ias-${{ inputs.environment }}-cluster \
+            --service ias-${{ inputs.environment }}-service \
+            --task-definition ${{ steps.current_task.outputs.current_task }}
+      
+      - name: Create rollback report
+        if: always()
+        run: |
+          cat << EOF > rollback-report.md
+          # Rollback Report
+          
+          **Environment:** ${{ inputs.environment }}
+          **Target Version:** ${{ inputs.target_version }}
+          **Status:** ${{ job.status }}
+          **Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Triggered by:** ${{ github.actor }}
+          
+          ## Details
+          - Previous task: ${{ steps.current_task.outputs.current_task }}
+          - Rollback version: ${{ inputs.target_version }}
+          
+          ## Verification
+          $([ "${{ job.status }}" = "success" ] && echo "✅ Rollback completed successfully" || echo "❌ Rollback failed")
+          EOF
+          
+          cat rollback-report.md
+      
+      - name: Upload rollback report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rollback-report-${{ inputs.environment }}-${{ inputs.target_version }}
+          path: rollback-report.md
+      
+      - name: Notify rollback status
+        if: always()
+        run: |
+          echo "Rollback to ${{ inputs.target_version }} completed with status: ${{ job.status }}"

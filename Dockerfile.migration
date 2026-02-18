@@ -1,0 +1,41 @@
+# =============================================================================
+# Dockerfile for running database migrations
+# Build: docker build -f Dockerfile.migration -t talentgeenie-migrate .
+# Run: docker run --rm -e DATABASE_URL=postgres://... talentgeenie-migrate
+# =============================================================================
+
+FROM postgres:15-alpine
+
+# Install additional tools
+RUN apk add --no-cache bash curl
+
+# Create migrations directory
+RUN mkdir -p /migrations
+
+# Copy migration files
+COPY supabase/migrations/*.sql /migrations/
+
+# Copy migration preflight patches (kept outside supabase/migrations which is read-only)
+COPY migrations/*.sql /migrations/
+
+# Copy migration script
+COPY scripts/run-migrations.sh /run-migrations.sh
+RUN chmod +x /run-migrations.sh
+
+# Set working directory
+WORKDIR /migrations
+
+# Default environment variables
+ENV DB_HOST=localhost
+ENV DB_PORT=5432
+ENV DB_NAME=postgres
+ENV DB_USER=postgres
+ENV DB_PASSWORD=""
+ENV MIGRATIONS_DIR=/migrations
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER || exit 1
+
+# Run migrations
+ENTRYPOINT ["/run-migrations.sh"]

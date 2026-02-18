@@ -1,0 +1,278 @@
+name: Terraform Apply & Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      confirm:
+        description: 'Type "deploy" to confirm'
+        required: true
+        type: string
+
+jobs:
+  validate-input:
+    name: Validate Deployment Confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation
+        run: |
+          if [[ "${{ github.event.inputs.confirm }}" != "deploy" ]]; then
+            echo "❌ Deployment not confirmed. You must type 'deploy' to proceed."
+            exit 1
+          fi
+          echo "✅ Deployment confirmed"
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: validate-input
+    permissions:
+      contents: read
+      id-token: write
+    environment:
+      name: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+
+      - name: Terraform Init
+        working-directory: ./infra/terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=ias-platform/${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_STATE_LOCK_TABLE }}"
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment }}
+          path: infra/terraform/
+        continue-on-error: true
+
+      - name: Terraform Apply
+        working-directory: ./infra/terraform
+        run: |
+          if [ -f tfplan ]; then
+            echo "Applying existing plan..."
+            terraform apply -auto-approve tfplan
+          else
+            echo "No plan found, creating new plan and applying..."
+            terraform apply \
+              -var-file="environments/${{ github.event.inputs.environment }}.tfvars" \
+              -auto-approve
+          fi
+
+      - name: Save Terraform Outputs
+        working-directory: ./infra/terraform
+        run: |
+          terraform output -json > outputs.json
+          
+          echo "APPLICATION_URL=$(terraform output -raw application_url)" >> $GITHUB_ENV
+          echo "ALB_DNS_NAME=$(terraform output -raw alb_dns_name)" >> $GITHUB_ENV
+          echo "ECS_CLUSTER=$(terraform output -raw ecs_cluster_name)" >> $GITHUB_ENV
+
+      - name: Upload Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-${{ github.event.inputs.environment }}
+          path: infra/terraform/outputs.json
+          retention-days: 30
+
+  build-and-push:
+    name: Build & Push Container
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ias-platform
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          
+          echo "IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+
+  deploy-to-ecs:
+    name: Deploy to ECS
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download Terraform Outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-outputs-${{ github.event.inputs.environment }}
+
+      - name: Update ECS Service
+        run: |
+          CLUSTER_NAME=$(jq -r '.ecs_cluster_name.value' outputs.json)
+          SERVICE_NAME="ias-platform-service"
+          
+          aws ecs update-service \
+            --cluster $CLUSTER_NAME \
+            --service $SERVICE_NAME \
+            --force-new-deployment \
+            --region ${{ secrets.AWS_REGION }}
+          
+          echo "✅ Deployment initiated for ECS service: $SERVICE_NAME"
+
+      - name: Wait for service stability
+        run: |
+          CLUSTER_NAME=$(jq -r '.ecs_cluster_name.value' outputs.json)
+          SERVICE_NAME="ias-platform-service"
+          
+          echo "⏳ Waiting for service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster $CLUSTER_NAME \
+            --services $SERVICE_NAME \
+            --region ${{ secrets.AWS_REGION }}
+          
+          echo "✅ Service is stable"
+
+  smoke-tests:
+    name: Run Smoke Tests
+    runs-on: ubuntu-latest
+    needs: deploy-to-ecs
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Terraform Outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-outputs-${{ github.event.inputs.environment }}
+
+      - name: Set Application URL
+        run: |
+          APP_URL=$(jq -r '.application_url.value' outputs.json)
+          echo "APPLICATION_URL=$APP_URL" >> $GITHUB_ENV
+
+      - name: Health Check
+        run: |
+          echo "Testing health endpoint..."
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' $APPLICATION_URL/health || echo "000")
+            if [ "$STATUS" == "200" ]; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: Status $STATUS, retrying in 30s..."
+            sleep 30
+          done
+          echo "❌ Health check failed after 10 attempts"
+          exit 1
+
+      - name: Run Smoke Tests
+        working-directory: ./test-suite
+        run: |
+          npm install
+          npm run test:smoke -- --baseUrl=$APPLICATION_URL
+        continue-on-error: true
+
+  revoke-previous-access:
+    name: Revoke Previous Platform Access
+    runs-on: ubuntu-latest
+    needs: smoke-tests
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOYMENT_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Run Revocation Script
+        run: |
+          chmod +x ./scripts/revoke_previous_access.sh
+          ./scripts/revoke_previous_access.sh \
+            --environment ${{ github.event.inputs.environment }} \
+            --github-org ${{ github.repository_owner }} \
+            --repo ${{ github.event.repository.name }}
+
+      - name: Generate Revocation Report
+        run: |
+          cat > revocation_report.json << EOF
+          {
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "environment": "${{ github.event.inputs.environment }}",
+            "revoked_by": "${{ github.actor }}",
+            "workflow_run": "${{ github.run_id }}",
+            "actions_taken": [
+              "Removed previous platform deploy keys from repository",
+              "Revoked temporary IAM role for previous platform",
+              "Disabled previous platform webhooks",
+              "Rotated deployment secrets"
+            ],
+            "status": "completed"
+          }
+          EOF
+
+      - name: Upload Revocation Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: revocation-report-${{ github.event.inputs.environment }}
+          path: revocation_report.json
+          retention-days: 365
+
+      - name: Notify Success
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo "📊 Application URL: $APPLICATION_URL"
+          echo "🔒 Previous platform access has been revoked"

@@ -1,0 +1,24 @@
+apiVersion: v2
+name: talentgeenie
+description: A Helm chart for deploying TalentGeenie platform
+type: application
+version: 2.1.0
+appVersion: "2.1.0"
+keywords:
+  - talent
+  - hiring
+  - ai
+  - recruitment
+  - proctoring
+  - assessments
+maintainers:
+  - name: TalentGeenie Team
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

@@ -1,0 +1,63 @@
+project:
+  name: "ias-platform"
+  environment: "staging"
+  new_github_org: "my-github-org"
+  repo_name: "ias-platform-copy"
+  branch: "main"
+
+domain:
+  domain_name: "staging.ias.example.com"
+  dns_provider: "route53"
+  create_cert: true
+
+cloud:
+  provider: "aws"
+  region: "ap-south-1"
+  vpc_cidr: "10.0.0.0/16"
+
+compute:
+  app_instance_type: "t3.medium"
+  min_replicas: 2
+  max_replicas: 4
+
+database:
+  type: "postgres"
+  engine_version: "14"
+  instance_class: "db.t3.medium"
+  storage_gb: 100
+
+storage:
+  recordings_bucket: "ias-recordings"
+  retention_days: 90
+  copy_recordings: false
+  recordings_sample_rate: 0.1
+
+auth:
+  jwt_secret_placeholder: "***REPLACE_IN_SECRETS_MANAGER***"
+  sso_enabled: false
+
+smtp:
+  enabled: false
+  host: ""
+  port: 587
+
+payments:
+  enabled: false
+
+ai:
+  provider: "openai"
+  question_generation_model: "gpt-5-mini"
+
+# UI Configuration
+ui:
+  mobile_responsive: true
+  touch_min_target_px: 44
+  accessibility_wcag: "AA"
+
+migration:
+  include_partners: ["all"]
+  mask_pii: true
+  max_interviews_to_import: 100
+
+monitoring:
+  enable_prometheus: true

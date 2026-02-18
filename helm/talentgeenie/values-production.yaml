@@ -1,0 +1,171 @@
+# =============================================================================
+# Production Values for TalentGeenie
+# Use: helm install talentgeenie ./helm/talentgeenie -f values-production.yaml
+# =============================================================================
+
+replicaCount: 3
+
+image:
+  repository: your-registry/talentgeenie
+  pullPolicy: Always
+  tag: "latest"  # Use specific version in production
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: talentgeenie.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: talentgeenie-tls
+      hosts:
+        - talentgeenie.yourdomain.com
+
+# Production resources
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "1Gi"
+    cpu: "1"
+
+# Autoscaling for production
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# =============================================================================
+# OPTION 1: Use Supabase Cloud
+# =============================================================================
+# Uncomment this section to use Supabase Cloud backend
+
+# postgresql:
+#   enabled: false
+# 
+# redis:
+#   enabled: false
+# 
+# migration:
+#   enabled: false
+# 
+# supabase:
+#   url: "https://your-project.supabase.co"
+#   anonKey: "your-anon-key"
+#   projectId: "your-project-id"
+
+# =============================================================================
+# OPTION 2: Self-Hosted Database
+# =============================================================================
+# Uncomment this section for self-hosted deployment
+
+postgresql:
+  enabled: true
+  auth:
+    username: talentgeenie
+    database: talentgeenie
+    # Create this secret before deploying:
+    # kubectl create secret generic talentgeenie-db-secret --from-literal=password=YOUR_SECURE_PASSWORD
+    existingSecret: talentgeenie-db-secret
+  primary:
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClass: "standard"  # Change based on your cloud provider
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "500m"
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+    # PostgreSQL configuration for production
+    configuration: |
+      max_connections = 200
+      shared_buffers = 1GB
+      effective_cache_size = 3GB
+      maintenance_work_mem = 256MB
+      checkpoint_completion_target = 0.9
+      wal_buffers = 16MB
+      default_statistics_target = 100
+      random_page_cost = 1.1
+      effective_io_concurrency = 200
+
+redis:
+  enabled: true
+  auth:
+    existingSecret: talentgeenie-redis-secret
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+migration:
+  enabled: true
+  image:
+    repository: your-registry/talentgeenie-migrate
+    tag: "latest"
+
+# =============================================================================
+# Security Settings
+# =============================================================================
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1001
+  capabilities:
+    drop:
+      - ALL
+
+networkPolicy:
+  enabled: true
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+# Pod anti-affinity for high availability
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - talentgeenie
+        topologyKey: kubernetes.io/hostname
