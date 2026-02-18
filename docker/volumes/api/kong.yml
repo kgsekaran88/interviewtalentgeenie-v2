@@ -122,6 +122,28 @@ services:
             - anon
 
   # ---------------------------------------------------------------------------
+  # Edge Functions — Deno runtime (v1)
+  # ---------------------------------------------------------------------------
+  - name: functions-v1
+    url: http://functions:9000/
+    routes:
+      - name: functions-v1-route
+        strip_path: false
+        paths:
+          - /functions/v1/
+    plugins:
+      - name: cors
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin
+            - anon
+
+  # ---------------------------------------------------------------------------
   # Postgres Meta — Database metadata API (v1)
   # ---------------------------------------------------------------------------
   - name: meta

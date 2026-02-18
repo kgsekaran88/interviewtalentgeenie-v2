@@ -3,7 +3,8 @@
 # =============================================================================
 # This compose file brings up the FULL Supabase backend locally:
 #   PostgreSQL 15  ·  PostgREST  ·  GoTrue (Auth)  ·  Realtime
-#   Storage API  ·  Kong (API Gateway)  ·  Studio  ·  Postgres-Meta  ·  Imgproxy
+#   Storage API  ·  Kong (API Gateway)  ·  Edge Functions (Deno)
+#   Studio  ·  Postgres-Meta  ·  Imgproxy
 #
 # Usage:
 #   cp .env.supabase.example .env.supabase
@@ -323,7 +324,49 @@ services:
       - "com.talentgeenie.service=studio"
 
   # ---------------------------------------------------------------------------
-  # 10. DB Migrations — Run app schema on top of Supabase base
+  # 10. Edge Functions — Deno runtime (105 functions, zero code changes)
+  # ---------------------------------------------------------------------------
+  functions:
+    image: supabase/edge-runtime:v1.58.3
+    container_name: talentgeenie-functions
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+      VERIFY_JWT: ${FUNCTIONS_VERIFY_JWT:-false}
+      # App-specific secrets
+      AI_GATEWAY_URL: ${AI_GATEWAY_URL:-}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SCHEDULED_CLEANUP_SECRET: ${SCHEDULED_CLEANUP_SECRET:-local-dev-secret}
+    volumes:
+      - ./supabase/functions:/home/deno/functions:Z
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+      kong:
+        condition: service_healthy
+    command:
+      - start
+      - --main-service
+      - /home/deno/functions/main
+    healthcheck:
+      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "http://localhost:9000/main/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.talentgeenie.service=edge-functions"
+
+  # ---------------------------------------------------------------------------
+  # 11. DB Migrations — Run app schema on top of Supabase base
   # ---------------------------------------------------------------------------
   db-migrations:
     image: supabase/postgres:15.6.1.143
