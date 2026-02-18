@@ -117,15 +117,36 @@ fi
 echo ""
 
 # --- Incremental migrations (from supabase/migrations/) ---
+# On a fresh deploy, these are redundant since fresh-deploy already has the
+# full schema. We mark them as applied to keep the migration history complete.
 if [ -d "$INCREMENTAL_DIR" ]; then
-  log "Running incremental migrations from $INCREMENTAL_DIR..."
   file_count=$(find "$INCREMENTAL_DIR" -name '*.sql' -type f | wc -l | tr -d ' ')
-  log "Found $file_count SQL files"
 
-  for f in $(find "$INCREMENTAL_DIR" -name '*.sql' -type f | sort); do
-    run_migration "$f"
-  done
-  log "Incremental migrations complete!"
+  # Check if fresh-deploy was just run (any fresh-deploy entries exist)
+  fresh_count=$(psql -tAc "SELECT COUNT(*) FROM public._schema_migrations WHERE filename LIKE '0%'" 2>/dev/null || echo "0")
+
+  if [ "$fresh_count" -gt 0 ]; then
+    log "Fresh-deploy was applied — marking $file_count incremental migrations as baseline..."
+    for f in $(find "$INCREMENTAL_DIR" -name '*.sql' -type f | sort); do
+      local_filename=$(basename "$f")
+      local_checksum=$(md5sum "$f" | awk '{print $1}')
+      already=$(psql -tAc "SELECT COUNT(*) FROM public._schema_migrations WHERE filename = '$local_filename'" 2>/dev/null || echo "0")
+      if [ "$already" -gt 0 ]; then
+        continue
+      fi
+      psql -v ON_ERROR_STOP=1 -c \
+        "INSERT INTO public._schema_migrations (version, filename, checksum) VALUES ('baseline_${local_filename%.sql}', '$local_filename', '$local_checksum') ON CONFLICT (version) DO NOTHING" 2>/dev/null || true
+    done
+    log "All incremental migrations marked as baseline."
+  else
+    log "Running incremental migrations from $INCREMENTAL_DIR..."
+    log "Found $file_count SQL files"
+
+    for f in $(find "$INCREMENTAL_DIR" -name '*.sql' -type f | sort); do
+      run_migration "$f"
+    done
+    log "Incremental migrations complete!"
+  fi
 else
   warn "No incremental directory found at $INCREMENTAL_DIR"
 fi

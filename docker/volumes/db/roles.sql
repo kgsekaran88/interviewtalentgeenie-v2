@@ -8,6 +8,14 @@
 -- We add any extra grants our application needs.
 -- =============================================================================
 
+-- Set passwords for service roles (uses POSTGRES_PASSWORD env var via psql \set)
+\set pgpass `echo "$POSTGRES_PASSWORD"`
+
+ALTER USER authenticator WITH PASSWORD :'pgpass';
+ALTER USER supabase_auth_admin WITH PASSWORD :'pgpass';
+ALTER USER supabase_storage_admin WITH PASSWORD :'pgpass';
+ALTER USER supabase_replication_admin WITH PASSWORD :'pgpass';
+
 -- Ensure the authenticator role can switch to our application roles
 -- (supabase/postgres already sets this up, but we ensure it explicitly)
 DO $$

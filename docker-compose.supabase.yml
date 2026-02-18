@@ -23,28 +23,36 @@ services:
   # 1. PostgreSQL — Core database
   # ---------------------------------------------------------------------------
   db:
-    image: supabase/postgres:15.6.1.143
+    image: supabase/postgres:15.8.1.085
     container_name: talentgeenie-db
     restart: unless-stopped
     ports:
       - "${POSTGRES_PORT:-54322}:5432"
     environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: "5432"
+      POSTGRES_PORT: "5432"
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGDATABASE: ${POSTGRES_DB:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXP: ${JWT_EXP:-3600}
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./docker/volumes/db/roles.sql:/docker-entrypoint-initdb.d/99-roles.sql:ro
+      - ./docker/volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      - ./docker/volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
     networks:
       - talentgeenie-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-postgres}"]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
       interval: 5s
       timeout: 5s
       retries: 10
     command:
       - postgres
+      - -c
+      - listen_addresses=*
       - -c
       - wal_level=logical
       - -c
@@ -68,14 +76,20 @@ services:
       - "${KONG_HTTPS_PORT:-8443}:8443/tcp"
     environment:
       KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
       KONG_DNS_ORDER: LAST,A,CNAME
       KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
       KONG_STATUS_LISTEN: 0.0.0.0:8100
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
     volumes:
-      - ./docker/volumes/api/kong.yml:/var/lib/kong/kong.yml:ro
+      - ./docker/volumes/api/kong.yml:/home/kong/temp.yml:ro
+    entrypoint: >
+      bash -c '
+      sed "s|\$${ANON_KEY}|$$ANON_KEY|g; s|\$${SERVICE_ROLE_KEY}|$$SERVICE_ROLE_KEY|g" /home/kong/temp.yml > /home/kong/kong.yml &&
+      /docker-entrypoint.sh kong docker-start'
     networks:
       - talentgeenie-network
     depends_on:
@@ -186,11 +200,15 @@ services:
       API_JWT_SECRET: ${JWT_SECRET}
       FLY_ALLOC_ID: fly123
       FLY_APP_NAME: realtime
+      APP_NAME: realtime
       SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE:-UpNVntn3cDxHJpq99YMc1T1AQgQpc8kfYTuRgBiYa15BLrx8etQoXz3gZv1/u2oq}
       ERL_AFLAGS: -proto_dist inet_tcp
       ENABLE_TAILWIND_LOGS: "false"
       DNS_NODES: "''"
-      RLIMIT_NOFILE: 10000
+      RLIMIT_NOFILE: "10000"
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
+      DB_ENC_KEY: supabaserealtime
     networks:
       - talentgeenie-network
     depends_on:
@@ -327,7 +345,7 @@ services:
   # 10. Edge Functions — Deno runtime (105 functions, zero code changes)
   # ---------------------------------------------------------------------------
   functions:
-    image: supabase/edge-runtime:v1.58.3
+    image: supabase/edge-runtime:v1.70.3
     container_name: talentgeenie-functions
     restart: unless-stopped
     environment:
@@ -369,13 +387,13 @@ services:
   # 11. DB Migrations — Run app schema on top of Supabase base
   # ---------------------------------------------------------------------------
   db-migrations:
-    image: supabase/postgres:15.6.1.143
+    image: supabase/postgres:15.8.1.085
     container_name: talentgeenie-db-migrations
     environment:
       PGHOST: db
       PGPORT: 5432
       PGDATABASE: ${POSTGRES_DB:-postgres}
-      PGUSER: postgres
+      PGUSER: supabase_admin
       PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - ./migrations/fresh-deploy:/migrations/fresh-deploy:ro

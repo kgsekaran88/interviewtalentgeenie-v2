@@ -11,6 +11,11 @@
 --   4. live_stream_signals   — liveStreamWebRTC (WebRTC signaling)
 -- =============================================================================
 
+-- Create _realtime schema needed by Realtime v2.x (DB_AFTER_CONNECT_QUERY uses it)
+CREATE SCHEMA IF NOT EXISTS _realtime;
+GRANT USAGE ON SCHEMA _realtime TO supabase_admin;
+GRANT ALL ON SCHEMA _realtime TO supabase_admin;
+
 -- Ensure the publication exists (created in roles.sql, but be safe)
 DO $$
 BEGIN
