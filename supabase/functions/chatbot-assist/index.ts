@@ -186,7 +186,7 @@ ${customKnowledgeContext}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gemini-2.5-flash',
         messages: apiMessages,
         stream: true,
       }),
@@ -202,7 +202,7 @@ ${customKnowledgeContext}`;
       await logAIUsage({
         featureName: 'chatbot_assist',
         success: false,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens,
         latencyMs,
         errorMessage: `${aiResponse.status}: ${errorText}`,
@@ -231,7 +231,7 @@ ${customKnowledgeContext}`;
     await logAIUsage({
       featureName: 'chatbot_assist',
       success: true,
-      modelUsed: 'google/gemini-2.5-flash',
+      modelUsed: 'gemini-2.5-flash',
       requestTokens,
       responseTokens: 150, // Estimated for streaming responses
       latencyMs,

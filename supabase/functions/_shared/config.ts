@@ -351,7 +351,7 @@ export async function getAIConfig(featureName: string): Promise<AIConfig> {
             : [];
           
           // Use configured model preference or first supported model
-          const model = primaryCred.model_preference || supportedModels[0] || 'google/gemini-2.5-flash';
+          const model = primaryCred.model_preference || supportedModels[0] || 'gemini-2.5-flash';
 
           const config: AIConfig = {
             primaryProvider: {
@@ -385,7 +385,7 @@ export async function getAIConfig(featureName: string): Promise<AIConfig> {
                 const fallbackModels = Array.isArray(fallbackProvider?.supported_models) 
                   ? fallbackProvider.supported_models 
                   : [];
-                const fallbackModel = fallbackCred.model_preference || fallbackModels[0] || 'google/gemini-2.5-flash';
+                const fallbackModel = fallbackCred.model_preference || fallbackModels[0] || 'gemini-2.5-flash';
 
                 config.fallbackProvider = {
                   type: fallbackProvider.provider_type,
@@ -418,7 +418,7 @@ export async function getAIConfig(featureName: string): Promise<AIConfig> {
         type: 'gateway-ai',
         baseUrl: Deno.env.get('AI_GATEWAY_URL') || '',
         apiKey: gatewayApiKey,
-        model: 'google/gemini-2.5-flash',
+        model: 'gemini-2.5-flash',
       },
       fallbackProvider: null,
       retryAttempts: 3,

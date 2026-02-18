@@ -282,7 +282,7 @@ async function extractWithGatewayAI(prompt: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash-lite', // Cost-optimized: simple extraction task
+      model: 'gemini-2.5-flash-lite', // Cost-optimized: simple extraction task
       messages: [
         { role: 'user', content: prompt }
       ],
@@ -468,7 +468,7 @@ Job Title: ${jobTitle}${jobDescription ? `\n\nJob Description: ${jobDescription}
       await logAIUsage({
         featureName: 'skill_extraction',
         success: true,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         fallbackUsed: true,
         requestTokens,
         responseTokens,

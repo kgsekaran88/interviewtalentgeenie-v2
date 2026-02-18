@@ -52,7 +52,7 @@ IMPORTANT:
       featureName: 'jd_enhancement',
       prompt: userPrompt,
       systemPrompt: systemPrompt,
-      model: 'google/gemini-2.5-flash-lite', // Cost-optimized: text enhancement task
+      model: 'gemini-2.5-flash-lite', // Cost-optimized: text enhancement task
     });
 
     if (!enhancedDescription) {

@@ -62,13 +62,13 @@ function getDefaultModelForFeature(featureName: string): string {
   ];
   
   if (bulkFeatures.includes(featureName)) {
-    return 'google/gemini-2.5-flash-lite';
+    return 'gemini-2.5-flash-lite';
   }
   
   // Accuracy-critical tasks use standard flash model
   // - evaluate-interview, coding_evaluation, descriptive_evaluation
   // - analyze-proctoring-video, bias-detection, etc.
-  return 'google/gemini-2.5-flash';
+  return 'gemini-2.5-flash';
 }
 
 /**
@@ -261,7 +261,7 @@ async function callConfiguredProvider(
 /**
  * Call AI Gateway and return full response with usage data
  */
-async function callGatewayAIWithUsage(prompt: string, systemPrompt: string, model: string = 'google/gemini-2.5-flash'): Promise<AIResponse> {
+async function callGatewayAIWithUsage(prompt: string, systemPrompt: string, model: string = 'gemini-2.5-flash'): Promise<AIResponse> {
   const AI_GATEWAY_API_KEY = Deno.env.get('AI_GATEWAY_API_KEY')?.trim();
   
   if (!AI_GATEWAY_API_KEY) {
@@ -520,7 +520,7 @@ export async function callAIWithTools<T = any>(options: AICallWithToolsOptions):
     await logAIUsage({
       featureName,
       success: false,
-      modelUsed: data.model || 'google/gemini-2.5-flash',
+      modelUsed: data.model || 'gemini-2.5-flash',
       requestTokens,
       responseTokens,
       latencyMs,

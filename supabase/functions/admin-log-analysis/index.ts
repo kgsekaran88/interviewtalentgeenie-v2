@@ -577,7 +577,7 @@ Example queries you can handle:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
@@ -595,7 +595,7 @@ Example queries you can handle:
       await logAIUsage({
         featureName: 'admin_log_analysis',
         success: false,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens,
         latencyMs,
         errorMessage: `${initialResponse.status}: ${errorText}`,
@@ -655,7 +655,7 @@ Example queries you can handle:
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "gemini-2.5-flash",
           messages: [
             { role: "system", content: systemPrompt },
             ...messages,
@@ -680,7 +680,7 @@ Example queries you can handle:
       await logAIUsage({
         featureName: 'admin_log_analysis',
         success: true,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens: requestTokens + toolResultsTokens,
         responseTokens,
         latencyMs,
@@ -703,7 +703,7 @@ Example queries you can handle:
     await logAIUsage({
       featureName: 'admin_log_analysis',
       success: true,
-      modelUsed: 'google/gemini-2.5-flash',
+      modelUsed: 'gemini-2.5-flash',
       requestTokens,
       responseTokens,
       latencyMs,

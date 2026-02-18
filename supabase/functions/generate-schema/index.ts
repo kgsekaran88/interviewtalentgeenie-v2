@@ -80,7 +80,7 @@ ${jobDescription}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-lite', // Cost-optimized: simple extraction
+          model: 'gemini-2.5-flash-lite', // Cost-optimized: simple extraction
           messages: [{ role: 'user', content: domainPrompt }],
         }),
       });
@@ -138,7 +138,7 @@ Return ONLY valid JSON in this exact format:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite', // Cost-optimized: schema generation
+        model: 'gemini-2.5-flash-lite', // Cost-optimized: schema generation
         messages: [{ role: 'user', content: schemaPrompt }],
       }),
     });
@@ -151,7 +151,7 @@ Return ONLY valid JSON in this exact format:
       await logAIUsage({
         featureName: 'schema_generation',
         success: false,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens,
         latencyMs,
         errorMessage: `Schema generation failed: ${error}`,
@@ -174,7 +174,7 @@ Return ONLY valid JSON in this exact format:
     await logAIUsage({
       featureName: 'schema_generation',
       success: true,
-      modelUsed: 'google/gemini-2.5-flash',
+      modelUsed: 'gemini-2.5-flash',
       requestTokens: actualRequestTokens,
       responseTokens: actualResponseTokens,
       latencyMs,

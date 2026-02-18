@@ -102,7 +102,7 @@ Return ONLY valid JSON (no markdown):
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash-lite', // Cost-optimized: ~70% cheaper for question generation
+            model: 'gemini-2.5-flash-lite', // Cost-optimized: ~70% cheaper for question generation
             messages: [
               { role: 'system', content: 'You are an expert certification exam creator. Return only valid JSON, no markdown.' },
               { role: 'user', content: prompt }
@@ -133,7 +133,7 @@ Return ONLY valid JSON (no markdown):
         await logAIUsage({
           featureName: 'certification_question_generation',
           success: true,
-          modelUsed: 'google/gemini-2.5-flash-lite',
+          modelUsed: 'gemini-2.5-flash-lite',
           requestTokens,
           responseTokens,
           latencyMs,

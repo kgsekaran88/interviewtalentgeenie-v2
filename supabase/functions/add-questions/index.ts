@@ -178,7 +178,7 @@ Return ONLY a valid JSON array of questions.`;
           'Content-Type': 'application/json' 
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-lite', // Cost-optimized: ~70% cheaper for question generation
+          model: 'gemini-2.5-flash-lite', // Cost-optimized: ~70% cheaper for question generation
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
@@ -207,7 +207,7 @@ Return ONLY a valid JSON array of questions.`;
       await logAIUsage({
         featureName: 'question_generation',
         success: true,
-        modelUsed: 'google/gemini-2.5-flash-lite',
+        modelUsed: 'gemini-2.5-flash-lite',
         fallbackUsed: true,
         requestTokens: actualRequestTokens,
         responseTokens: actualResponseTokens,

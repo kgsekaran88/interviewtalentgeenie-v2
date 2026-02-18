@@ -258,7 +258,7 @@ async function analyzeScreenContent(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "gemini-2.5-flash",
           ...AI_PRIVACY_CONFIG,
           messages: [
             {
@@ -405,7 +405,7 @@ Respond in JSON format:
         await logAIUsage({
           featureName: 'proctoring_screen_analysis',
           success: false,
-          modelUsed: 'google/gemini-2.5-flash',
+          modelUsed: 'gemini-2.5-flash',
           requestTokens: TOKENS_PER_IMAGE + 500, // Approximate prompt tokens
           latencyMs,
           errorMessage: `${response.status}: ${errorText}`,
@@ -421,7 +421,7 @@ Respond in JSON format:
       await logAIUsage({
         featureName: 'proctoring_screen_analysis',
         success: true,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens: TOKENS_PER_IMAGE + 500,
         responseTokens,
         latencyMs,
@@ -561,7 +561,7 @@ async function analyzeVideoFrames(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "gemini-2.5-flash",
           ...AI_PRIVACY_CONFIG,
           messages: [
             {
@@ -681,7 +681,7 @@ Respond in JSON format:
         await logAIUsage({
           featureName: 'proctoring_video_frame_analysis',
           success: false,
-          modelUsed: 'google/gemini-2.5-flash',
+          modelUsed: 'gemini-2.5-flash',
           requestTokens: TOKENS_PER_IMAGE + 600,
           latencyMs,
           errorMessage: `${response.status}: ${errorText}`,
@@ -696,7 +696,7 @@ Respond in JSON format:
       await logAIUsage({
         featureName: 'proctoring_video_frame_analysis',
         success: true,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens: TOKENS_PER_IMAGE + 600,
         responseTokens,
         latencyMs,
@@ -927,7 +927,7 @@ async function verifySamePerson(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-2.5-flash",
         ...AI_PRIVACY_CONFIG,
         messages: [
           {
@@ -979,7 +979,7 @@ Respond in JSON format:
       await logAIUsage({
         featureName: 'proctoring_same_person_verification',
         success: false,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens: TOKENS_PER_IMAGE * 3 + 400,
         latencyMs,
         errorMessage: `${response.status}: ${errorText}`,
@@ -994,7 +994,7 @@ Respond in JSON format:
     await logAIUsage({
       featureName: 'proctoring_same_person_verification',
       success: true,
-      modelUsed: 'google/gemini-2.5-flash',
+      modelUsed: 'gemini-2.5-flash',
       requestTokens: TOKENS_PER_IMAGE * 3 + 400,
       responseTokens,
       latencyMs,
@@ -1084,7 +1084,7 @@ async function analyzeEyeGaze(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-2.5-flash",
         ...AI_PRIVACY_CONFIG, // Privacy: prevent data retention
         messages: [
           {
@@ -1154,7 +1154,7 @@ Respond in JSON format:
       await logAIUsage({
         featureName: 'proctoring_eye_gaze_analysis',
         success: false,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens: TOKENS_PER_IMAGE + 800,
         latencyMs,
         errorMessage: `${response.status}: ${errorText}`,
@@ -1169,7 +1169,7 @@ Respond in JSON format:
     await logAIUsage({
       featureName: 'proctoring_eye_gaze_analysis',
       success: true,
-      modelUsed: 'google/gemini-2.5-flash',
+      modelUsed: 'gemini-2.5-flash',
       requestTokens: TOKENS_PER_IMAGE + 800,
       responseTokens,
       latencyMs,

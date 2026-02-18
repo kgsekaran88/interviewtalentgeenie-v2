@@ -134,7 +134,7 @@ The job description should be professional, engaging, and suitable for generatin
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite", // Cost-optimized: text generation task
+        model: "gemini-2.5-flash-lite", // Cost-optimized: text generation task
         messages: [
           {
             role: "system",
@@ -158,7 +158,7 @@ The job description should be professional, engaging, and suitable for generatin
       logAIUsage({
         featureName: 'job_description_generation',
         success: false,
-        modelUsed: 'google/gemini-2.5-flash-lite',
+        modelUsed: 'gemini-2.5-flash-lite',
         requestTokens,
         latencyMs,
         errorMessage: `${response.status}: ${errorText}`,
@@ -191,7 +191,7 @@ The job description should be professional, engaging, and suitable for generatin
       logAIUsage({
         featureName: 'job_description_generation',
         success: false,
-        modelUsed: 'google/gemini-2.5-flash',
+        modelUsed: 'gemini-2.5-flash',
         requestTokens,
         latencyMs,
         errorMessage: 'Empty response from AI',
@@ -205,7 +205,7 @@ The job description should be professional, engaging, and suitable for generatin
     logAIUsage({
       featureName: 'job_description_generation',
       success: true,
-      modelUsed: 'google/gemini-2.5-flash',
+      modelUsed: 'gemini-2.5-flash',
       requestTokens,
       responseTokens,
       latencyMs,
