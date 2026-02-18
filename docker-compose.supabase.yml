@@ -380,6 +380,7 @@ services:
     volumes:
       - ./migrations/fresh-deploy:/migrations/fresh-deploy:ro
       - ./supabase/migrations:/migrations/incremental:ro
+      - ./docker/volumes/db/realtime.sql:/migrations/post-setup/realtime.sql:ro
       - ./scripts/run-bootstrap.sh:/run-bootstrap.sh:ro
     networks:
       - talentgeenie-network

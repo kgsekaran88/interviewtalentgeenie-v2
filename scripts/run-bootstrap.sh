@@ -136,3 +136,16 @@ log " Database bootstrap complete!"
 log " Total migrations applied:"
 psql -c "SELECT COUNT(*) as total, MAX(applied_at) as last_applied FROM public._schema_migrations"
 log "============================================"
+
+# ---------------------------------------------------------------------------
+# Run post-setup scripts (realtime publication, etc.)
+# ---------------------------------------------------------------------------
+POST_SETUP_DIR="/migrations/post-setup"
+if [ -d "$POST_SETUP_DIR" ]; then
+  log "Running post-setup scripts from $POST_SETUP_DIR..."
+  for f in $(find "$POST_SETUP_DIR" -name '*.sql' -type f | sort); do
+    log "  → Executing: $(basename "$f")"
+    psql -v ON_ERROR_STOP=1 -f "$f" || warn "  ⚠ Post-setup script failed: $(basename "$f")"
+  done
+  log "Post-setup complete!"
+fi
