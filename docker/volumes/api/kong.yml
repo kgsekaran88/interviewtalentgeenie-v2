@@ -1,0 +1,142 @@
+# =============================================================================
+# Kong Declarative Configuration — TalentGeenie Self-Hosted Supabase
+# =============================================================================
+# Routes all /rest/v1, /auth/v1, /realtime/v1, /storage/v1 to backend services.
+# DB-less mode — no database required for Kong itself.
+# =============================================================================
+
+_format_version: "2.1"
+_transform: true
+
+# =============================================================================
+# Consumers — API key consumers for anon and service_role
+# =============================================================================
+consumers:
+  - username: anon
+    keyauth_credentials:
+      - key: ${ANON_KEY:?ANON_KEY is required}
+  - username: service_role
+    keyauth_credentials:
+      - key: ${SERVICE_ROLE_KEY:?SERVICE_ROLE_KEY is required}
+
+# =============================================================================
+# ACL Groups
+# =============================================================================
+acls:
+  - consumer: anon
+    group: anon
+  - consumer: service_role
+    group: admin
+
+# =============================================================================
+# Services & Routes
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # Auth — GoTrue (v1)
+  # ---------------------------------------------------------------------------
+  - name: auth-v1
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1-route
+        strip_path: true
+        paths:
+          - /auth/v1/
+    plugins:
+      - name: cors
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin
+            - anon
+
+  # ---------------------------------------------------------------------------
+  # PostgREST — REST API (v1)
+  # ---------------------------------------------------------------------------
+  - name: rest-v1
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1-route
+        strip_path: true
+        paths:
+          - /rest/v1/
+    plugins:
+      - name: cors
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin
+            - anon
+
+  # ---------------------------------------------------------------------------
+  # Realtime — WebSocket subscriptions (v1)
+  # ---------------------------------------------------------------------------
+  - name: realtime-v1
+    url: http://realtime:4000/socket/
+    routes:
+      - name: realtime-v1-route
+        strip_path: true
+        paths:
+          - /realtime/v1/
+    plugins:
+      - name: cors
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin
+            - anon
+
+  # ---------------------------------------------------------------------------
+  # Storage — File storage API (v1)
+  # ---------------------------------------------------------------------------
+  - name: storage-v1
+    url: http://storage:5000/
+    routes:
+      - name: storage-v1-route
+        strip_path: true
+        paths:
+          - /storage/v1/
+    plugins:
+      - name: cors
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin
+            - anon
+
+  # ---------------------------------------------------------------------------
+  # Postgres Meta — Database metadata API (v1)
+  # ---------------------------------------------------------------------------
+  - name: meta
+    url: http://meta:8080/
+    routes:
+      - name: meta-route
+        strip_path: true
+        paths:
+          - /pg/
+    plugins:
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: acl
+        config:
+          hide_groups_header: true
+          allow:
+            - admin

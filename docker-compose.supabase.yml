@@ -1,0 +1,365 @@
+# =============================================================================
+# TalentGeenie — Self-Hosted Supabase Stack (Local Development)
+# =============================================================================
+# This compose file brings up the FULL Supabase backend locally:
+#   PostgreSQL 15  ·  PostgREST  ·  GoTrue (Auth)  ·  Realtime
+#   Storage API  ·  Kong (API Gateway)  ·  Studio  ·  Postgres-Meta  ·  Imgproxy
+#
+# Usage:
+#   cp .env.supabase.example .env.supabase
+#   docker compose -f docker-compose.supabase.yml --env-file .env.supabase up -d
+#
+# Endpoints (defaults):
+#   Kong API Gateway:  http://localhost:8000  (use as VITE_SUPABASE_URL)
+#   Supabase Studio:   http://localhost:3000
+#   PostgreSQL:        localhost:54322
+# =============================================================================
+
+name: talentgeenie-supabase
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. PostgreSQL — Core database
+  # ---------------------------------------------------------------------------
+  db:
+    image: supabase/postgres:15.6.1.143
+    container_name: talentgeenie-db
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-54322}:5432"
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: ${JWT_EXP:-3600}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/volumes/db/roles.sql:/docker-entrypoint-initdb.d/99-roles.sql:ro
+    networks:
+      - talentgeenie-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${POSTGRES_DB:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - max_connections=200
+    labels:
+      - "com.talentgeenie.service=database"
+
+  # ---------------------------------------------------------------------------
+  # 2. Kong — API Gateway
+  # ---------------------------------------------------------------------------
+  kong:
+    image: kong:2.8.1
+    container_name: talentgeenie-kong
+    restart: unless-stopped
+    ports:
+      - "${KONG_HTTP_PORT:-8000}:8000/tcp"
+      - "${KONG_HTTPS_PORT:-8443}:8443/tcp"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
+      KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
+      KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      KONG_STATUS_LISTEN: 0.0.0.0:8100
+    volumes:
+      - ./docker/volumes/api/kong.yml:/var/lib/kong/kong.yml:ro
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    labels:
+      - "com.talentgeenie.service=api-gateway"
+
+  # ---------------------------------------------------------------------------
+  # 3. GoTrue — Authentication
+  # ---------------------------------------------------------------------------
+  auth:
+    image: supabase/gotrue:v2.158.1
+    container_name: talentgeenie-auth
+    restart: unless-stopped
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:5173}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS:-}
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
+
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXP:-3600}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: ${ENABLE_EMAIL_SIGNUP:-true}
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${ENABLE_ANONYMOUS_SIGN_INS:-false}
+      GOTRUE_MAILER_AUTOCONFIRM: ${ENABLE_EMAIL_AUTOCONFIRM:-true}
+      GOTRUE_MAILER_SECURE_EMAIL_CHANGE_ENABLED: true
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:-admin@talentgeenie.local}
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:-inbucket}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-2500}
+      GOTRUE_SMTP_USER: ${SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS:-}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME:-TalentGeenie}
+
+      GOTRUE_EXTERNAL_PHONE_ENABLED: ${ENABLE_PHONE_SIGNUP:-false}
+      GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM:-true}
+
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: 100
+      GOTRUE_RATE_LIMIT_TOKEN_REFRESH: 150
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.talentgeenie.service=auth"
+
+  # ---------------------------------------------------------------------------
+  # 4. PostgREST — RESTful API
+  # ---------------------------------------------------------------------------
+  rest:
+    image: postgrest/postgrest:v12.2.0
+    container_name: talentgeenie-rest
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public,storage,graphql_public}
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXP:-3600}
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+    command: "postgrest"
+    labels:
+      - "com.talentgeenie.service=rest-api"
+
+  # ---------------------------------------------------------------------------
+  # 5. Realtime — WebSocket subscriptions
+  # ---------------------------------------------------------------------------
+  realtime:
+    image: supabase/realtime:v2.30.34
+    container_name: talentgeenie-realtime
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: supabase_admin
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      DB_ENC: "true"
+      API_JWT_SECRET: ${JWT_SECRET}
+      FLY_ALLOC_ID: fly123
+      FLY_APP_NAME: realtime
+      SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE:-UpNVntn3cDxHJpq99YMc1T1AQgQpc8kfYTuRgBiYa15BLrx8etQoXz3gZv1/u2oq}
+      ERL_AFLAGS: -proto_dist inet_tcp
+      ENABLE_TAILWIND_LOGS: "false"
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: 10000
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "http://localhost:4000/api/tenants"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.talentgeenie.service=realtime"
+
+  # ---------------------------------------------------------------------------
+  # 6. Storage API — File storage
+  # ---------------------------------------------------------------------------
+  storage:
+    image: supabase/storage-api:v1.11.13
+    container_name: talentgeenie-storage
+    restart: unless-stopped
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: local
+      GLOBAL_S3_BUCKET: stub
+      ENABLE_IMAGE_TRANSFORMATION: "true"
+      IMGPROXY_URL: http://imgproxy:8080
+    volumes:
+      - storage-data:/var/lib/storage
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+      imgproxy:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.talentgeenie.service=storage"
+
+  # ---------------------------------------------------------------------------
+  # 7. Imgproxy — Image transformations for Storage
+  # ---------------------------------------------------------------------------
+  imgproxy:
+    image: darthsim/imgproxy:v3.8.0
+    container_name: talentgeenie-imgproxy
+    restart: unless-stopped
+    environment:
+      IMGPROXY_BIND: ":8080"
+      IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
+      IMGPROXY_USE_ETAG: "true"
+      IMGPROXY_ENABLE_WEBP_DETECTION: ${IMGPROXY_ENABLE_WEBP_DETECTION:-true}
+    volumes:
+      - storage-data:/var/lib/storage:ro
+    networks:
+      - talentgeenie-network
+    healthcheck:
+      test: ["CMD", "imgproxy", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.talentgeenie.service=imgproxy"
+
+  # ---------------------------------------------------------------------------
+  # 8. Postgres Meta — Database metadata API (for Studio)
+  # ---------------------------------------------------------------------------
+  meta:
+    image: supabase/postgres-meta:v0.84.2
+    container_name: talentgeenie-meta
+    restart: unless-stopped
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${POSTGRES_DB:-postgres}
+      PG_META_DB_USER: supabase_admin
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - "com.talentgeenie.service=postgres-meta"
+
+  # ---------------------------------------------------------------------------
+  # 9. Studio — Supabase Dashboard UI
+  # ---------------------------------------------------------------------------
+  studio:
+    image: supabase/studio:20241029-46e1e40
+    container_name: talentgeenie-studio
+    restart: unless-stopped
+    ports:
+      - "${STUDIO_PORT:-3000}:3000/tcp"
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DEFAULT_ORGANIZATION_NAME: ${STUDIO_DEFAULT_ORGANIZATION:-TalentGeenie}
+      DEFAULT_PROJECT_NAME: ${STUDIO_DEFAULT_PROJECT:-InterviewTalentGeenie}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      LOGFLARE_API_KEY: ${LOGFLARE_API_KEY:-placeholder}
+      LOGFLARE_URL: http://localhost:4000
+      NEXT_PUBLIC_ENABLE_LOGS: "false"
+      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+    networks:
+      - talentgeenie-network
+    depends_on:
+      kong:
+        condition: service_healthy
+      meta:
+        condition: service_started
+    labels:
+      - "com.talentgeenie.service=studio"
+
+  # ---------------------------------------------------------------------------
+  # 10. DB Migrations — Run app schema on top of Supabase base
+  # ---------------------------------------------------------------------------
+  db-migrations:
+    image: supabase/postgres:15.6.1.143
+    container_name: talentgeenie-db-migrations
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-postgres}
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - ./migrations/fresh-deploy:/migrations/fresh-deploy:ro
+      - ./supabase/migrations:/migrations/incremental:ro
+      - ./scripts/run-bootstrap.sh:/run-bootstrap.sh:ro
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["bash", "/run-bootstrap.sh"]
+    restart: "no"
+    labels:
+      - "com.talentgeenie.service=db-migrations"
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  db-data:
+    driver: local
+  storage-data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  talentgeenie-network:
+    driver: bridge
