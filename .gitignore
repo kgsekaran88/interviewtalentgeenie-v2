@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Migration data (temporary)
+.migration-data
+
 # Environment variables
 .env
 .env.local

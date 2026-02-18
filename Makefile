@@ -150,13 +150,17 @@ install: ## Install frontend dependencies
 # Data Migration (Cloud → Self-Hosted)
 # =============================================================================
 
-migrate-cloud: ## Migrate data from Supabase Cloud (interactive)
-	@chmod +x scripts/migrate-cloud-data.sh
-	@bash scripts/migrate-cloud-data.sh
+import-data: ## Import data from Lovable Cloud via API (requires data-export function deployed)
+	@chmod +x scripts/import-from-lovable.sh
+	@bash scripts/import-from-lovable.sh
 
-migrate-cloud-dry: ## Dry run of cloud data migration
-	@chmod +x scripts/migrate-cloud-data.sh
-	@bash scripts/migrate-cloud-data.sh --dry-run
+import-data-dry: ## Preview what will be imported from Lovable Cloud
+	@chmod +x scripts/import-from-lovable.sh
+	@bash scripts/import-from-lovable.sh --dry-run
+
+import-table: ## Import a single table (usage: make import-table TABLE=profiles)
+	@chmod +x scripts/import-from-lovable.sh
+	@bash scripts/import-from-lovable.sh --table=$(TABLE)
 
 # =============================================================================
 # Cleanup
