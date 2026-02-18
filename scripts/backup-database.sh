@@ -5,7 +5,7 @@
 set -e
 
 # Configuration
-PROJECT_ID="${VITE_SUPABASE_PROJECT_ID:-aiwekrfwhdwvbnrkuurh}"
+PROJECT_ID="${VITE_SUPABASE_PROJECT_ID:-self-hosted}"
 SUPABASE_URL="${VITE_SUPABASE_URL}"
 SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY}"
 DATE=$(date +%Y%m%d_%H%M%S)

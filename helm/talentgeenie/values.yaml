@@ -134,6 +134,17 @@ env:
   NODE_ENV: production
 
 # =============================================================================
+# Supabase Configuration (self-hosted)
+# =============================================================================
+supabase:
+  # Kong API gateway URL (self-hosted Supabase endpoint)
+  url: "http://kong:8000"
+  # Anon/public key (same as VITE_SUPABASE_PUBLISHABLE_KEY)
+  anonKey: "your-generated-anon-key"
+  # Project identifier
+  projectId: "self-hosted"
+
+# =============================================================================
 # Database Configuration (PostgreSQL)
 # =============================================================================
 postgresql:

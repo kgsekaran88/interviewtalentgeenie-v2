@@ -147,6 +147,18 @@ install: ## Install frontend dependencies
 	@npm install
 
 # =============================================================================
+# Data Migration (Cloud → Self-Hosted)
+# =============================================================================
+
+migrate-cloud: ## Migrate data from Supabase Cloud (interactive)
+	@chmod +x scripts/migrate-cloud-data.sh
+	@bash scripts/migrate-cloud-data.sh
+
+migrate-cloud-dry: ## Dry run of cloud data migration
+	@chmod +x scripts/migrate-cloud-data.sh
+	@bash scripts/migrate-cloud-data.sh --dry-run
+
+# =============================================================================
 # Cleanup
 # =============================================================================
 

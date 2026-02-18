@@ -46,28 +46,17 @@ autoscaling:
   targetMemoryUtilizationPercentage: 80
 
 # =============================================================================
-# OPTION 1: Use Supabase Cloud
+# Supabase Configuration (self-hosted)
 # =============================================================================
-# Uncomment this section to use Supabase Cloud backend
-
-# postgresql:
-#   enabled: false
-# 
-# redis:
-#   enabled: false
-# 
-# migration:
-#   enabled: false
-# 
-# supabase:
-#   url: "https://your-project.supabase.co"
-#   anonKey: "your-anon-key"
-#   projectId: "your-project-id"
+# Set these to your self-hosted Supabase endpoint
+supabase:
+  url: "https://api.yourdomain.com"  # Kong API gateway URL
+  anonKey: "your-generated-anon-key"
+  projectId: "self-hosted"
 
 # =============================================================================
-# OPTION 2: Self-Hosted Database
+# Self-Hosted Database
 # =============================================================================
-# Uncomment this section for self-hosted deployment
 
 postgresql:
   enabled: true
