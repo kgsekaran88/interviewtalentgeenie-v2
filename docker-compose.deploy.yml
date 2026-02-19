@@ -1,0 +1,114 @@
+# =============================================================================
+# TalentGeenie — Production Deployment
+# =============================================================================
+# This compose file adds the production frontend + Caddy reverse proxy
+# ON TOP of the Supabase stack (docker-compose.supabase.yml).
+#
+# Usage:
+#   docker compose \
+#     -f docker-compose.supabase.yml \
+#     -f docker-compose.deploy.yml \
+#     --env-file .env.production \
+#     up -d --build
+#
+# Architecture:
+#   Internet → Caddy (:443, auto-SSL)
+#     ├─ /              → app (nginx :8080, React SPA)
+#     ├─ /auth/         → kong :8000 → GoTrue
+#     ├─ /rest/         → kong :8000 → PostgREST
+#     ├─ /storage/      → kong :8000 → Storage API
+#     ├─ /functions/    → kong :8000 → Edge Functions
+#     ├─ /realtime/     → kong :8000 → Realtime (WS)
+#     └─ /pg/           → kong :8000 → Postgres Meta
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Override: Remove Kong's host port exposure in production
+  # (Caddy handles all external traffic on 80/443)
+  # ---------------------------------------------------------------------------
+  kong:
+    ports: !override []
+
+  # Override: Remove DB host port in production (internal only)
+  db:
+    ports: !override []
+
+  # Override: Studio only on localhost (SSH tunnel access)
+  studio:
+    ports:
+      - "127.0.0.1:${STUDIO_PORT:-3001}:3000/tcp"
+
+  # ---------------------------------------------------------------------------
+  # Caddy — Reverse proxy with automatic HTTPS
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: talentgeenie-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3 (QUIC)
+    environment:
+      DOMAIN: ${DOMAIN:-interviewai.talentgeenie.com}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data          # SSL certificates
+      - caddy-config:/config      # Caddy config state
+      - caddy-logs:/var/log/caddy
+    networks:
+      - talentgeenie-network
+    depends_on:
+      kong:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      - "com.talentgeenie.service=reverse-proxy"
+
+  # ---------------------------------------------------------------------------
+  # Frontend App — React SPA served by nginx
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_SUPABASE_URL: https://${DOMAIN:-interviewai.talentgeenie.com}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
+        VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID:-production}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+    container_name: talentgeenie-app
+    restart: unless-stopped
+    networks:
+      - talentgeenie-network
+    # No ports exposed — Caddy handles external traffic
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    labels:
+      - "com.talentgeenie.service=frontend"
+
+volumes:
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
+  caddy-logs:
+    driver: local

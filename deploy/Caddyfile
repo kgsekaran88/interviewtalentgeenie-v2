@@ -1,0 +1,73 @@
+# =============================================================================
+# Caddy Reverse Proxy — TalentGeenie Production
+# =============================================================================
+# Automatic HTTPS via Let's Encrypt for interviewai.talentgeenie.com
+# Routes:
+#   /            → Frontend (nginx, static React SPA)
+#   /auth/       → Kong → GoTrue
+#   /rest/       → Kong → PostgREST
+#   /storage/    → Kong → Storage API
+#   /functions/  → Kong → Edge Functions (Deno)
+#   /realtime/   → Kong → Realtime (WebSocket)
+#   /pg/         → Kong → Postgres Meta
+# =============================================================================
+
+{$DOMAIN:interviewai.talentgeenie.com} {
+	# --- Supabase API routes → Kong (port 8000) ---
+	handle /auth/* {
+		reverse_proxy kong:8000
+	}
+
+	handle /rest/* {
+		reverse_proxy kong:8000
+	}
+
+	handle /storage/* {
+		reverse_proxy kong:8000
+	}
+
+	handle /functions/* {
+		reverse_proxy kong:8000
+	}
+
+	handle /realtime/* {
+		reverse_proxy kong:8000 {
+			# WebSocket support for Realtime
+			transport http {
+				versions h2c 1.1
+			}
+		}
+	}
+
+	handle /pg/* {
+		reverse_proxy kong:8000
+	}
+
+	# --- Studio (admin dashboard, optional — restrict in production) ---
+	handle /studio/* {
+		# Only expose if ENABLE_STUDIO is set, otherwise block
+		respond "Not Found" 404
+	}
+
+	# --- Frontend (default catch-all) → nginx SPA ---
+	handle {
+		reverse_proxy app:8080
+	}
+
+	# Security headers (Caddy adds HSTS automatically with HTTPS)
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(self), geolocation=(), payment=()"
+		-Server
+	}
+
+	# Access log
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 10mb
+			roll_keep 5
+		}
+	}
+}
