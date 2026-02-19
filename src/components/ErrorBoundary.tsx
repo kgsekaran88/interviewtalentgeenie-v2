@@ -1,10 +1,15 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import * as Sentry from '@sentry/react';
 import { AlertCircle, Home, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Props {
   children: ReactNode;
+  /** Optional section label for Sentry context (e.g. "admin", "partner") */
+  section?: string;
+  /** Optional fallback to render instead of default error card */
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -23,9 +28,19 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Keep console.error for ErrorBoundary - this should always be visible
     console.error('Error boundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
+
+    // Report to Sentry with section context
+    Sentry.withScope((scope) => {
+      if (this.props.section) {
+        scope.setTag('section', this.props.section);
+      }
+      if (errorInfo.componentStack) {
+        scope.setExtra('componentStack', errorInfo.componentStack);
+      }
+      Sentry.captureException(error);
+    });
   }
 
   private handleReset = () => {

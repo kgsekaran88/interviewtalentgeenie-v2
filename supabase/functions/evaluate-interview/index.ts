@@ -7,11 +7,8 @@ import { callAI, callAIWithTools } from "../_shared/ai-caller.ts";
 import { getAIConfig, logAIUsage } from "../_shared/config.ts";
 import { getProctoringConfig, getViolationScore, isViolationEnabled, ProctoringConfig } from "../_shared/proctoring-config.ts";
 import { sendAssessmentReadyEmail } from "../_shared/email-helper.ts";
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Helper to log operations to database
 async function logOperation(

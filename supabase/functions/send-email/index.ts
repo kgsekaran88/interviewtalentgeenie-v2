@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { corsHeaders } from '../_shared/cors.ts';
 
 // Inline email sanitization utilities to avoid cross-file bundling issues
 const INVALID_TRAILING_CHARS = /[,;|:'"()[\]{}]+$/;
@@ -24,10 +25,6 @@ function sanitizeEmailList(emails: string[]): string[] {
   return emails.map(email => sanitizeEmail(email)).filter(email => isValidEmail(email));
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Email template types
 type EmailTemplate = 

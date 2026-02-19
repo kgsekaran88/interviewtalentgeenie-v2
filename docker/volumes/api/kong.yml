@@ -45,6 +45,11 @@ services:
           - /auth/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - ${FRONTEND_URL}
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -67,6 +72,11 @@ services:
           - /rest/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - ${FRONTEND_URL}
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -89,6 +99,11 @@ services:
           - /realtime/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - ${FRONTEND_URL}
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -111,6 +126,11 @@ services:
           - /storage/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - ${FRONTEND_URL}
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false
@@ -133,6 +153,11 @@ services:
           - /functions/v1/
     plugins:
       - name: cors
+        config:
+          origins:
+            - ${FRONTEND_URL}
+          credentials: true
+          max_age: 3600
       - name: key-auth
         config:
           hide_credentials: false

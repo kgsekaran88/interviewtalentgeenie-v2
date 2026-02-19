@@ -5,11 +5,8 @@ import { authenticateRequest } from "../_shared/auth-utils.ts";
 import { createLogger } from "../_shared/logger.ts";
 import { callAI } from "../_shared/ai-caller.ts";
 import { getAIConfig, logAIUsage } from "../_shared/config.ts";
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 // Helper to calculate per-category difficulty counts
 function calculateCategoryDifficultyCounts(

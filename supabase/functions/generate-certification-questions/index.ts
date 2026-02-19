@@ -2,16 +2,13 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { logAIUsage } from "../_shared/config.ts";
+import { corsHeaders } from '../_shared/cors.ts';
 
 // Token estimation helper (approx 4 chars per token)
 function estimateTokens(text: string): number {
   return Math.ceil((text || '').length / 4);
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

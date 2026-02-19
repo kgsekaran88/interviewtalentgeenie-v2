@@ -135,9 +135,17 @@ const App = () => (
               <Routes>
             {/* Public routes - Lazy loaded for performance */}
           {/* New readable URL format: /i/{org-slug}/{interview-slug}/{token} */}
-          <Route path="/i/:orgSlug/:interviewSlug/:shareToken" element={<TakeInterview />} />
+          <Route path="/i/:orgSlug/:interviewSlug/:shareToken" element={
+            <ErrorBoundary section="assessment">
+              <TakeInterview />
+            </ErrorBoundary>
+          } />
           {/* Legacy route for backward compatibility */}
-          <Route path="/take-interview/:shareLink" element={<TakeInterview />} />
+          <Route path="/take-interview/:shareLink" element={
+            <ErrorBoundary section="assessment">
+              <TakeInterview />
+            </ErrorBoundary>
+          } />
           <Route path="/interview-complete/:attemptId" element={<InterviewComplete />} />
           <Route path="/take-learning-assessment/:id" element={<TakeLearningAssessment />} />
           <Route path="/learning-progress/:id" element={<LearningProgress />} />
@@ -213,7 +221,9 @@ const App = () => (
           {/* Platform Admin Hierarchical Routes */}
           <Route path="/admin" element={
             <ProtectedRoute requiredRoles={['platform_admin']}>
-              <AdminLayout />
+              <ErrorBoundary section="admin">
+                <AdminLayout />
+              </ErrorBoundary>
             </ProtectedRoute>
           }>
               <Route index element={<PlatformAdminHub />} />
@@ -258,7 +268,9 @@ const App = () => (
             {/* Partner Admin Hierarchical Routes */}
             <Route path="/partner" element={
             <ProtectedRoute requiredRoles={['partner_admin', 'platform_admin', 'hr_recruiter', 'tech_spoc', 'billing_contact']}>
-              <PartnerLayout />
+              <ErrorBoundary section="partner">
+                <PartnerLayout />
+              </ErrorBoundary>
             </ProtectedRoute>
           }>
             <Route index element={<PartnerPortal />} />
@@ -282,7 +294,9 @@ const App = () => (
           {/* Recruiting Routes - Under Partner Hierarchy */}
           <Route path="/partner/recruiting" element={
             <ProtectedRoute requiredRoles={['hr_recruiter', 'tech_spoc', 'partner_admin', 'platform_admin']}>
-              <PartnerLayout />
+              <ErrorBoundary section="recruiting">
+                <PartnerLayout />
+              </ErrorBoundary>
             </ProtectedRoute>
           }>
             <Route path="jd-builder" element={<JDBuilderWizard />} />

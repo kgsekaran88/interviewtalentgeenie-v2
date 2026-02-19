@@ -40,7 +40,7 @@ jobs:
 
       - name: ESLint
         run: npx eslint . --max-warnings 0
-        continue-on-error: true  # Don't block on lint warnings initially
+        continue-on-error: true  # Remove once all lint issues are resolved
 
   # ---------------------------------------------------------------------------
   # 2. Unit Tests
@@ -60,7 +60,7 @@ jobs:
       - run: npm ci
 
       - name: Run Vitest
-        run: npx vitest run --reporter=verbose
+        run: npm test
         env:
           VITE_SUPABASE_URL: http://localhost:8000
           VITE_SUPABASE_PUBLISHABLE_KEY: test-anon-key
@@ -108,6 +108,7 @@ jobs:
             VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
             VITE_SUPABASE_PUBLISHABLE_KEY=${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
             VITE_SUPABASE_PROJECT_ID=${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+            VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
 
       - name: Validate Docker Compose
         run: docker compose -f docker-compose.supabase.yml config --quiet
@@ -115,3 +116,4 @@ jobs:
           JWT_SECRET: test-secret-for-validation-only
           ANON_KEY: test-anon-key
           SERVICE_ROLE_KEY: test-service-role-key
+          REALTIME_SECRET_KEY_BASE: test-realtime-secret-for-validation

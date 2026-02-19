@@ -65,6 +65,49 @@ services:
       - "com.talentgeenie.service=database"
 
   # ---------------------------------------------------------------------------
+  # 1b. PgBouncer — Connection Pooling
+  # Scales to 5000+ concurrent candidates by pooling DB connections.
+  # Pool mode: transaction (releases connection after each transaction)
+  # max_client_conn=1000 → handles many app services without exhausting DB.
+  # default_pool_size=25 per user → keeps total connections within max_connections=200.
+  # Services routed through PgBouncer: auth, rest, storage, functions.
+  # Services on direct DB: realtime (needs persistent), meta, migrations.
+  # ---------------------------------------------------------------------------
+  pgbouncer:
+    image: bitnami/pgbouncer:1.22.1
+    container_name: talentgeenie-pgbouncer
+    restart: unless-stopped
+    environment:
+      POSTGRESQL_HOST: db
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:-postgres}
+      POSTGRESQL_USERNAME: postgres
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGBOUNCER_PORT: 6432
+      PGBOUNCER_DATABASE: ${POSTGRES_DB:-postgres}
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_DEFAULT_POOL_SIZE: 25
+      PGBOUNCER_MIN_POOL_SIZE: 5
+      PGBOUNCER_MAX_CLIENT_CONN: 1000
+      PGBOUNCER_RESERVE_POOL_SIZE: 5
+      PGBOUNCER_RESERVE_POOL_TIMEOUT: 3
+      PGBOUNCER_MAX_DB_CONNECTIONS: 100
+      PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits
+      PGBOUNCER_AUTH_TYPE: trust
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U postgres || bash -c 'echo > /dev/tcp/127.0.0.1/6432'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "com.talentgeenie.service=pgbouncer"
+
+  # ---------------------------------------------------------------------------
   # 2. Kong — API Gateway
   # ---------------------------------------------------------------------------
   kong:
@@ -84,11 +127,12 @@ services:
       KONG_STATUS_LISTEN: 0.0.0.0:8100
       ANON_KEY: ${ANON_KEY}
       SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     volumes:
       - ./docker/volumes/api/kong.yml:/home/kong/temp.yml:ro
     entrypoint: >
       bash -c '
-      sed "s|\$${ANON_KEY}|$$ANON_KEY|g; s|\$${SERVICE_ROLE_KEY}|$$SERVICE_ROLE_KEY|g" /home/kong/temp.yml > /home/kong/kong.yml &&
+      sed "s|\$${ANON_KEY}|$$ANON_KEY|g; s|\$${SERVICE_ROLE_KEY}|$$SERVICE_ROLE_KEY|g; s|\$${FRONTEND_URL}|$$FRONTEND_URL|g" /home/kong/temp.yml > /home/kong/kong.yml &&
       /docker-entrypoint.sh kong docker-start'
     networks:
       - talentgeenie-network
@@ -116,7 +160,7 @@ services:
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
 
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-postgres}
 
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:5173}
       GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS:-}
@@ -147,7 +191,7 @@ services:
     networks:
       - talentgeenie-network
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
@@ -165,7 +209,7 @@ services:
     container_name: talentgeenie-rest
     restart: unless-stopped
     environment:
-      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-postgres}
       PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public,storage,graphql_public}
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
@@ -175,7 +219,7 @@ services:
     networks:
       - talentgeenie-network
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
     command: "postgrest"
     labels:
@@ -201,7 +245,7 @@ services:
       FLY_ALLOC_ID: fly123
       FLY_APP_NAME: realtime
       APP_NAME: realtime
-      SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE:-UpNVntn3cDxHJpq99YMc1T1AQgQpc8kfYTuRgBiYa15BLrx8etQoXz3gZv1/u2oq}
+      SECRET_KEY_BASE: ${REALTIME_SECRET_KEY_BASE}
       ERL_AFLAGS: -proto_dist inet_tcp
       ENABLE_TAILWIND_LOGS: "false"
       DNS_NODES: "''"
@@ -234,7 +278,7 @@ services:
       SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGREST_URL: http://rest:3000
       PGRST_JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-postgres}
       FILE_SIZE_LIMIT: 52428800
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
@@ -248,7 +292,7 @@ services:
     networks:
       - talentgeenie-network
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       rest:
         condition: service_started
@@ -359,7 +403,7 @@ services:
       SUPABASE_URL: http://kong:8000
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
-      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-postgres}
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-postgres}
       VERIFY_JWT: ${FUNCTIONS_VERIFY_JWT:-false}
       # App-specific secrets
       AI_GATEWAY_URL: ${AI_GATEWAY_URL:-}
@@ -373,7 +417,7 @@ services:
     networks:
       - talentgeenie-network
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       kong:
         condition: service_healthy

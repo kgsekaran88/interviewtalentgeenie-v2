@@ -1,10 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { authenticateRequest } from '../_shared/auth-utils.ts';
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
 
 /**
  * Auto-close expired proctoring sessions
