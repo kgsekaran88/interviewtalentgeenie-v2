@@ -40,7 +40,7 @@ jobs:
 
       - name: ESLint
         run: npx eslint . --max-warnings 0
-        continue-on-error: true  # Remove once all lint issues are resolved
+        continue-on-error: true  # ~1500 lint issues outstanding — tracked separately
 
   # ---------------------------------------------------------------------------
   # 2. Unit Tests

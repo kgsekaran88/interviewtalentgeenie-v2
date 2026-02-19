@@ -26,6 +26,11 @@ services:
     image: supabase/postgres:15.8.1.085
     container_name: talentgeenie-db
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -79,9 +84,14 @@ services:
   # Services on direct DB: realtime (needs persistent), meta, migrations.
   # ---------------------------------------------------------------------------
   pgbouncer:
-    image: edoburu/pgbouncer:latest
+    image: edoburu/pgbouncer:v1.25.1
     container_name: talentgeenie-pgbouncer
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -119,6 +129,11 @@ services:
     image: kong:2.8.1
     container_name: talentgeenie-kong
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -164,6 +179,11 @@ services:
     image: supabase/gotrue:v2.158.1
     container_name: talentgeenie-auth
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -223,6 +243,11 @@ services:
     image: postgrest/postgrest:v12.2.0
     container_name: talentgeenie-rest
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -252,6 +277,11 @@ services:
     image: supabase/realtime:v2.30.34
     container_name: talentgeenie-realtime
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -298,6 +328,11 @@ services:
     image: supabase/storage-api:v1.11.13
     container_name: talentgeenie-storage
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -343,6 +378,11 @@ services:
     image: darthsim/imgproxy:v3.8.0
     container_name: talentgeenie-imgproxy
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -372,6 +412,11 @@ services:
     image: supabase/postgres-meta:v0.84.2
     container_name: talentgeenie-meta
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -399,6 +444,11 @@ services:
     image: supabase/studio:20241029-46e1e40
     container_name: talentgeenie-studio
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -443,6 +493,11 @@ services:
     image: supabase/edge-runtime:v1.70.3
     container_name: talentgeenie-functions
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:
@@ -522,6 +577,11 @@ services:
     image: prodrigestivill/postgres-backup-local:15
     container_name: talentgeenie-db-backup
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     deploy:
       resources:
         limits:

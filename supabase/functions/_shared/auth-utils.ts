@@ -38,13 +38,9 @@ export async function authenticateRequest(
     global: { headers: { Authorization: authHeader } }
   });
 
-  console.log('[auth-utils] Auth header present:', !!authHeader);
-  console.log('[auth-utils] Auth header prefix:', authHeader?.substring(0, 20));
-
   // Verify user identity
   const { data: { user }, error: userError } = await supabaseAuth.auth.getUser();
   if (userError || !user) {
-    console.error('[auth-utils] User verification failed:', userError?.message, userError?.status);
     return {
       user: null,
       supabaseAuth,
@@ -52,8 +48,6 @@ export async function authenticateRequest(
       error: `Invalid authentication: ${userError?.message || 'No user found'}`
     };
   }
-
-  console.log('[auth-utils] User verified:', user.id, user.email);
 
   // Client 2: Service role (bypasses RLS for privileged operations)
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -66,7 +60,7 @@ export async function authenticateRequest(
       .eq('user_id', user.id);
 
     if (rolesError) {
-      console.error('[auth-utils] Error fetching roles:', rolesError.message);
+      console.error('[auth-utils] Role fetch failed:', rolesError.message);
       return {
         user,
         supabaseAuth,
@@ -76,7 +70,6 @@ export async function authenticateRequest(
     }
 
     const roles = userRoles?.map(r => r.role) || [];
-    console.log('[auth-utils] User roles:', roles);
 
     // Check if user has any of the required roles
     // platform_admin always has access (god mode)
@@ -84,7 +77,7 @@ export async function authenticateRequest(
                             roles.some(r => requiredRoles.includes(r));
     
     if (!hasRequiredRole) {
-      console.error('[auth-utils] Access denied. Has:', roles, 'Needs one of:', requiredRoles);
+      console.error('[auth-utils] Access denied for user:', user.id, '- missing roles:', requiredRoles);
       return {
         user,
         supabaseAuth,
@@ -92,8 +85,6 @@ export async function authenticateRequest(
         error: `Access denied. Required roles: ${requiredRoles.join(', ')}`
       };
     }
-
-    console.log('[auth-utils] Authorization successful');
   }
 
   return {
@@ -118,7 +109,7 @@ export async function getUserRoles(userId: string): Promise<string[]> {
     .eq('user_id', userId);
 
   if (error) {
-    console.error('[auth-utils] Error fetching roles for user:', userId, error.message);
+    console.error('[auth-utils] Role fetch error:', error.message);
     return [];
   }
 
