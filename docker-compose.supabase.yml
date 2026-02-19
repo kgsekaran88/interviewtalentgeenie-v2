@@ -74,33 +74,28 @@ services:
   # Services on direct DB: realtime (needs persistent), meta, migrations.
   # ---------------------------------------------------------------------------
   pgbouncer:
-    image: bitnami/pgbouncer:1.22.1
+    image: edoburu/pgbouncer:latest
     container_name: talentgeenie-pgbouncer
     restart: unless-stopped
+    entrypoint: ["/entrypoint-custom.sh"]
+    volumes:
+      - ./docker/pgbouncer-entrypoint.sh:/entrypoint-custom.sh:ro
     environment:
-      POSTGRESQL_HOST: db
-      POSTGRESQL_PORT: 5432
-      POSTGRESQL_DATABASE: ${POSTGRES_DB:-postgres}
-      POSTGRESQL_USERNAME: postgres
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      PGBOUNCER_PORT: 6432
-      PGBOUNCER_DATABASE: ${POSTGRES_DB:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGBOUNCER_DB_HOST: db
+      PGBOUNCER_DB_PORT: "5432"
+      PGBOUNCER_LISTEN_PORT: "6432"
       PGBOUNCER_POOL_MODE: transaction
-      PGBOUNCER_DEFAULT_POOL_SIZE: 25
-      PGBOUNCER_MIN_POOL_SIZE: 5
-      PGBOUNCER_MAX_CLIENT_CONN: 1000
-      PGBOUNCER_RESERVE_POOL_SIZE: 5
-      PGBOUNCER_RESERVE_POOL_TIMEOUT: 3
-      PGBOUNCER_MAX_DB_CONNECTIONS: 100
-      PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits
-      PGBOUNCER_AUTH_TYPE: trust
+      PGBOUNCER_DEFAULT_POOL_SIZE: "25"
+      PGBOUNCER_MAX_CLIENT_CONN: "1000"
+      PGBOUNCER_MAX_DB_CONNECTIONS: "100"
     networks:
       - talentgeenie-network
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U postgres || bash -c 'echo > /dev/tcp/127.0.0.1/6432'"]
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 6432"]
       interval: 10s
       timeout: 5s
       retries: 5

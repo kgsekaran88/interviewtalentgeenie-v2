@@ -7,10 +7,7 @@ function estimateTokens(text: string): number {
   return Math.ceil((text || '').length / 4);
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 // Tool definitions for AI to understand what it can do
 const tools = [

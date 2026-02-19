@@ -16,7 +16,7 @@ const INVALID_TRAILING_CHARS = /[,;|:'"()[\]{}]+$/;
  * Standard email validation regex
  * Matches most valid email formats while being reasonably strict
  */
-const EMAIL_REGEX = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Sanitize an email address by removing common problematic characters

@@ -4,10 +4,7 @@ import { authenticateRequest } from "../_shared/auth-utils.ts";
 import { createLogger } from "../_shared/logger.ts";
 import { getProctoringConfig, calculateIntegrityScore, ProctoringConfig } from "../_shared/proctoring-config.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 interface Logger {
   info: (msg: string, data?: any) => void;
