@@ -2,7 +2,9 @@
 
 > **Version**: 1.0 (Baseline)  
 > **Date**: 19 February 2026  
-> **Source**: Migrated from Lovable Cloud to Self-hosted Docker Supabase
+> **Tag**: `v1.0.0-baseline`  
+> **Source**: Migrated from Lovable Cloud to Self-hosted Docker Supabase  
+> **Audit**: See [MIGRATION_AUDIT_REPORT.md](MIGRATION_AUDIT_REPORT.md) for parity verification
 
 ---
 

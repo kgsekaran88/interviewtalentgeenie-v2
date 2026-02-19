@@ -10,7 +10,8 @@
 
 TalentGeenie is a comprehensive platform that revolutionizes the technical interview process by leveraging artificial intelligence. Generate tailored interview questions from job descriptions and receive instant, detailed candidate assessments.
 
-**Live Project**: https://lovable.dev/projects/5d0a16bd-a9fe-48d8-a184-f1322a8407f0
+**Baseline Tag**: `v1.0.0-baseline`  
+**Documentation**: [Functional Specification](docs/FUNCTIONAL_SPECIFICATION.md) | [Migration Audit](docs/MIGRATION_AUDIT_REPORT.md)
 
 ---
 
@@ -54,20 +55,37 @@ TalentGeenie is a comprehensive platform that revolutionizes the technical inter
 |-------|-----------|
 | **Frontend** | React 18, TypeScript, Vite |
 | **UI** | Tailwind CSS, shadcn/ui |
-| **Backend** | Supabase (Lovable Cloud) |
-| **Database** | PostgreSQL with RLS |
-| **AI** | Lovable AI (Gemini 2.5 Flash) |
-| **Auth** | Supabase Auth (Email + Anonymous) |
+| **Backend** | Self-hosted Supabase (Docker) |
+| **Database** | PostgreSQL 15.8 with RLS (406 policies) |
+| **AI** | Google Gemini 2.5 Flash (direct) |
+| **Auth** | Supabase GoTrue (Email + SMTP via Resend) |
+| **Edge Functions** | 107 Deno functions |
+| **Deployment** | Docker Compose (10 services) |
 
 ---
 
 ## 🚀 Quick Start
 
-### Using Lovable (Recommended)
+### Self-Hosted Setup
 
-1. Visit: https://lovable.dev/projects/5d0a16bd-a9fe-48d8-a184-f1322a8407f0
-2. Start prompting to make changes
-3. Changes are auto-committed to this repo
+```bash
+# 1. Clone the repository
+git clone https://github.com/kgsekaran88/interviewtalentgeenie-v2.git
+cd interviewtalentgeenie-v2
+
+# 2. Copy environment template and configure
+cp .env.supabase.example .env.supabase
+# Edit .env.supabase with your API keys
+
+# 3. Start Supabase stack (10 services)
+docker compose -f docker-compose.supabase.yml --env-file .env.supabase up -d
+
+# 4. Run database migrations
+# Apply migrations/incremental/*.sql in order
+
+# 5. Start frontend
+npm install && npm run dev
+```
 
 ### Local Development
 
@@ -102,8 +120,8 @@ This app can be deployed to **any platform**:
 
 Key points:
 - Frontend is a standard React/Vite app - deploy anywhere
-- Backend uses Lovable Cloud (Supabase) - no separate backend deployment needed
-- Just set environment variables and you're ready to go!
+- Backend runs as self-hosted Supabase Docker stack (10 services)
+- Configure `.env.supabase` with API keys and SMTP settings
 
 ---
 
@@ -269,15 +287,20 @@ Evaluates candidate responses using AI.
 
 ## 🔧 Environment
 
-All environment variables are auto-configured by Lovable Cloud:
+Environment variables are configured in `.env.supabase` (backend) and `.env.local` (frontend):
 
 ```env
-VITE_SUPABASE_URL=<auto-configured>
-VITE_SUPABASE_PUBLISHABLE_KEY=<auto-configured>
-VITE_SUPABASE_PROJECT_ID=<auto-configured>
+# Frontend (.env.local)
+VITE_SUPABASE_URL=http://localhost:8000
+VITE_SUPABASE_PUBLISHABLE_KEY=<your-anon-key>
+
+# Backend (.env.supabase) - see .env.supabase.example for full list
+AI_GATEWAY_API_KEY=<your-gemini-api-key>
+RESEND_API_KEY=<your-resend-api-key>
+SMTP_HOST=smtp.resend.com
 ```
 
-**No manual setup required!** ✨
+See `.env.supabase.example` for the complete list of configuration options.
 
 ---
 
@@ -306,12 +329,11 @@ VITE_SUPABASE_PROJECT_ID=<auto-configured>
 
 ## 🤝 Contributing
 
-This is a Lovable Cloud project. Make changes through:
+This is a self-hosted project. Make changes through:
 
-1. **Lovable Editor** (Primary): https://lovable.dev/projects/5d0a16bd-a9fe-48d8-a184-f1322a8407f0
-2. **Local Development**: Clone, edit, push (changes sync to Lovable)
-3. **GitHub**: Direct file edits
-4. **Codespaces**: Full cloud IDE
+1. **Local Development**: Clone, edit, push to GitHub
+2. **GitHub**: Direct file edits or Pull Requests
+3. **Codespaces**: Full cloud IDE
 
 ---
 
@@ -319,11 +341,10 @@ This is a Lovable Cloud project. Make changes through:
 
 Want a custom domain like `interviews.yourcompany.com`?
 
-1. Navigate to **Project > Settings > Domains**
-2. Click **Connect Domain**
-3. Follow the setup wizard
-
-[Learn more about custom domains](https://docs.lovable.dev/features/custom-domain)
+1. Configure your DNS to point to your deployment
+2. Set up SSL/TLS certificates (Let's Encrypt or similar)
+3. Update `SITE_URL` and `API_EXTERNAL_URL` in `.env.supabase`
+4. Update `VITE_SUPABASE_URL` in `.env.local`
 
 ---
 
@@ -345,16 +366,17 @@ Proprietary - All rights reserved
 
 | Metric | Value |
 |--------|-------|
-| Database Tables | 13 |
-| Edge Functions | 5 |
+| Database Tables | 122 |
+| Edge Functions | 107 |
 | User Roles | 6 |
-| UI Components | 40+ |
-| Pages/Routes | 13 |
-| Security Policies | 30+ |
-| Input Validations | 8 schemas |
+| UI Components | 100+ |
+| Pages/Routes | 60+ |
+| RLS Security Policies | 406 |
+| Database Functions | 123 |
+| Docker Services | 10 |
 
 ---
 
-**Built with ❤️ using Lovable Cloud**
+**Self-hosted on Docker Supabase**
 
 *Empowering better hiring decisions through AI*
