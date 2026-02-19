@@ -6,8 +6,10 @@ const corsHeaders = {
 };
 
 /**
- * Delete Organization
- * Uses transactional database function for atomicity
+ * Delete Organization - SOFT DELETE with confirmation gate
+ * Uses soft_delete_organization_tx for safe, reversible deletion.
+ * Requires confirmation phrase "DELETE <org-name>" to proceed.
+ * Hard delete only available with force=true AND typed confirmation.
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -52,7 +54,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { organizationId, deleteUsers = false } = await req.json();
+    const { organizationId, deleteUsers = false, confirmation, force = false } = await req.json();
 
     if (!organizationId) {
       return new Response(
@@ -61,9 +63,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Starting transactional deletion of organization: ${organizationId}`);
-
-    // Get organization info for logging before deletion
+    // Get organization info
     const { data: org } = await supabase
       .from('organizations')
       .select('name')
@@ -72,78 +72,119 @@ Deno.serve(async (req) => {
 
     const orgName = org?.name || 'Unknown';
 
-    // Get member IDs before deletion (for optional user deletion)
+    // ── CONFIRMATION GATE ──
+    const expectedConfirmation = `DELETE ${orgName}`;
+    if (!confirmation || confirmation !== expectedConfirmation) {
+      return new Response(
+        JSON.stringify({
+          error: 'Confirmation required',
+          message: `To delete organization "${orgName}", send confirmation: "${expectedConfirmation}"`,
+          requires_confirmation: true,
+          organization_name: orgName
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    // ── SOFT DELETE (default) ──
+    if (!force) {
+      console.log(`Soft-deleting organization: ${organizationId} (${orgName})`);
+
+      const { data, error } = await supabase.rpc('soft_delete_organization_tx', {
+        p_organization_id: organizationId
+      });
+
+      if (error) {
+        console.error('Soft-delete transaction error:', error);
+        return new Response(
+          JSON.stringify({ error: error.message, success: false }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        action: 'SOFT_DELETE_ORGANIZATION',
+        table_name: 'organizations',
+        record_id: organizationId,
+        metadata: {
+          organization_name: orgName,
+          soft_deleted_counts: data?.soft_deleted_counts || {},
+          can_restore: true,
+          restore_before: data?.restore_before,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          method: 'soft_delete',
+          message: `Organization "${orgName}" soft-deleted. Can be restored within 30 days.`,
+          soft_deleted_counts: data?.soft_deleted_counts || {},
+          can_restore: true,
+          restore_before: data?.restore_before,
+          timestamp: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    // ── HARD DELETE (force=true) ── only for permanent purge
+    console.log(`HARD-deleting organization: ${organizationId} (${orgName}) [force=true]`);
+
     const { data: members } = await supabase
       .from('organization_members')
       .select('user_id')
       .eq('organization_id', organizationId);
 
-    const memberUserIds = members?.map(m => m.user_id) || [];
+    const memberUserIds = members?.map((m: any) => m.user_id) || [];
 
-    // Call the transactional database function
     const { data, error } = await supabase.rpc('delete_organization_tx', {
       p_organization_id: organizationId
     });
 
     if (error) {
-      console.error('Transaction error:', error);
+      console.error('Hard-delete transaction error:', error);
       return new Response(
         JSON.stringify({ error: error.message, success: false }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
-    console.log('Organization deletion transaction completed:', data);
-
-    // Optionally delete auth users who were members (after transaction)
     let deletedUsers = 0;
     if (deleteUsers && memberUserIds.length > 0) {
       for (const userId of memberUserIds) {
-        // Check if user is a platform admin - don't delete them
         const { data: adminCheck } = await supabase
           .from('user_roles')
           .select('id')
           .eq('user_id', userId)
           .eq('role', 'platform_admin')
           .maybeSingle();
+        if (adminCheck) continue;
 
-        if (adminCheck) {
-          console.log(`Skipping platform admin user: ${userId}`);
-          continue;
-        }
-
-        // Check if user is member of any other organization
         const { data: otherMemberships } = await supabase
           .from('organization_members')
           .select('id')
           .eq('user_id', userId)
           .eq('status', 'active');
+        if (otherMemberships && otherMemberships.length > 0) continue;
 
-        if (otherMemberships && otherMemberships.length > 0) {
-          console.log(`User ${userId} is member of other orgs, skipping deletion`);
-          continue;
-        }
-
-        // Delete auth user (profile already deleted by transaction)
         const { error: deleteUserError } = await supabase.auth.admin.deleteUser(userId);
-        if (!deleteUserError) {
-          deletedUsers++;
-        } else {
-          console.error(`Failed to delete user ${userId}:`, deleteUserError);
-        }
+        if (!deleteUserError) deletedUsers++;
       }
     }
 
-    // Log the action
     await supabase.from('audit_logs').insert({
       user_id: user.id,
-      action: 'DELETE_ORGANIZATION_COMPLETE',
+      action: 'HARD_DELETE_ORGANIZATION',
       table_name: 'organizations',
       record_id: organizationId,
       metadata: {
         organization_name: orgName,
         deleted_counts: data?.deleted_counts || {},
         users_deleted: deletedUsers,
+        force: true,
         timestamp: new Date().toISOString()
       }
     });
@@ -151,29 +192,21 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Organization "${orgName}" and all related data deleted successfully`,
+        method: 'hard_delete',
+        message: `Organization "${orgName}" permanently deleted. THIS CANNOT BE UNDONE.`,
         deleted_counts: data?.deleted_counts || {},
         users_deleted: deletedUsers,
         timestamp: new Date().toISOString()
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error) {
     console.error('Error in delete-organization:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return new Response(
-      JSON.stringify({ 
-        error: errorMessage,
-        success: false 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
+      JSON.stringify({ error: errorMessage, success: false }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

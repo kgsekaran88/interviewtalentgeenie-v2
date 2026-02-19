@@ -31,7 +31,9 @@ Deno.serve(async (req) => {
     const requestBody = await req.json();
     const action = requestBody.action;
 
-    // Handle create user action
+    // ═══════════════════════════════════════════
+    // CREATE USER (unchanged)
+    // ═══════════════════════════════════════════
     if (action === 'create') {
       const roleAssignmentSchema = z.object({
         role: z.string(),
@@ -59,10 +61,8 @@ Deno.serve(async (req) => {
       const existingUser = existingUsers?.users.find((u: { email?: string }) => u.email === email);
 
       if (existingUser) {
-        // User exists in auth, use their ID
         userId = existingUser.id;
         
-        // Ensure profile exists (in case trigger failed)
         const { error: profileError } = await supabase
           .from("profiles")
           .upsert({
@@ -77,13 +77,12 @@ Deno.serve(async (req) => {
         
         logger.info('User already exists, using existing account', { userId, email });
       } else {
-        // Create new user with a temporary random password
         const temporaryPassword = crypto.randomUUID();
         
         const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
           email,
           password: temporaryPassword,
-          email_confirm: false, // Don't auto-confirm, user must set password via link
+          email_confirm: false,
           user_metadata: { full_name: fullName }
         });
 
@@ -97,7 +96,6 @@ Deno.serve(async (req) => {
 
         userId = newUser.user.id;
 
-        // Wait for profile trigger and verify profile creation
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         const { data: profileCheck } = await supabase
@@ -107,7 +105,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
         
         if (!profileCheck) {
-          // If trigger failed, create profile manually
           const { error: manualProfileError } = await supabase
             .from("profiles")
             .insert({
@@ -121,7 +118,6 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Send password setup email
         try {
           const emailResponse = await supabase.functions.invoke('send-password-setup', {
             body: {
@@ -145,7 +141,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Handle organization membership if organizationId provided
       if (organizationId) {
         const { data: existingMember } = await supabase
           .from("organization_members")
@@ -155,7 +150,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (!existingMember) {
-          // Create membership as 'pending' - will be activated after password setup
           await supabase
             .from("organization_members")
             .insert({
@@ -165,11 +159,9 @@ Deno.serve(async (req) => {
               invited_by: user.id
             });
         }
-        // If member exists, don't change their status - password setup will activate if needed
         logger.info('Organization membership handled', { userId, organizationId });
       }
 
-      // Assign roles with organization scope if roleAssignments provided
       if (roleAssignments && roleAssignments.length > 0) {
         const roleInserts = roleAssignments.map((ra: { role: string; organization_id?: string | null; created_by_role?: string }) => ({
           user_id: userId,
@@ -178,7 +170,6 @@ Deno.serve(async (req) => {
           created_by_role: ra.created_by_role || 'platform_admin'
         }));
 
-        // Delete existing roles first (to handle updates)
         await supabase
           .from("user_roles")
           .delete()
@@ -194,7 +185,6 @@ Deno.serve(async (req) => {
           logger.info('Roles assigned with organization scope', { userId, roleCount: roleInserts.length });
         }
       } else if (userRoles && userRoles.length > 0) {
-        // Fallback to simple role assignment without org scope
         const roleInserts = userRoles.map((role: string) => ({
           user_id: userId,
           role: role
@@ -227,348 +217,129 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Handle delete user action
+    // ═══════════════════════════════════════════
+    // DELETE USER - now uses SOFT DELETE
+    // ═══════════════════════════════════════════
     if (action === 'delete') {
       const deleteSchema = z.object({
         userId: z.string().uuid('Invalid user ID')
       });
 
       const { userId } = deleteSchema.parse(requestBody);
-      logger.info('Deleting user', { userId });
+      logger.info('Soft-deleting user', { userId });
 
-      // Prevent admin from deleting themselves
       if (userId === user.id) {
-        logger.warn('Attempted self-deletion', { userId });
         return new Response(
           JSON.stringify({ error: 'Cannot delete your own account' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Check if user has any active organization memberships
-      const { data: memberships, error: membershipError } = await supabase
-        .from('organization_members')
-        .select('organization_id, status, organizations(name)')
-        .eq('user_id', userId)
-        .eq('status', 'active');
+      // Use soft_delete_user_tx instead of hard delete
+      const { data: txResult, error: txError } = await supabase.rpc('soft_delete_user_tx', {
+        p_user_id: userId,
+        p_admin_user_id: user.id
+      });
 
-      if (membershipError) {
-        logger.error('Failed to check memberships', membershipError, { userId });
+      if (txError) {
+        logger.error('Soft delete failed', txError, { userId });
         return new Response(
-          JSON.stringify({ error: 'Failed to check user memberships' }),
+          JSON.stringify({ error: txError.message || 'Soft delete failed' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      if (memberships && memberships.length > 0) {
-        const orgDetails = memberships.map((m: any) => ({
-          id: m.organization_id,
-          name: m.organizations?.name || 'Unknown Organization'
-        }));
-        
-        logger.warn('User has active organization memberships', { userId, count: memberships.length, organizations: orgDetails });
-        return new Response(
-          JSON.stringify({ 
-            error: 'User has active organization memberships. Please remove user from all organizations first.',
-            organizationCount: memberships.length,
-            organizations: orgDetails
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // Disable the auth user (don't delete — allows restore)
+      const { error: updateAuthError } = await supabase.auth.admin.updateUserById(userId, {
+        ban_duration: '876000h' // ~100 years = effectively disabled
+      });
+
+      if (updateAuthError) {
+        logger.warn('Failed to disable auth user (soft-delete still succeeded)', { userId, error: updateAuthError.message });
       }
 
-      // Check for data dependencies that would prevent deletion
-      const dataDependencies = [];
-      
-      // Untag interviews created by this user (set creator_id to null)
-      // This ensures new accounts with same email don't see old interviews
-      const { error: untagInterviewsError } = await supabase
-        .from('interviews')
-        .update({ creator_id: null })
-        .eq('creator_id', userId);
-      
-      if (untagInterviewsError) {
-        logger.error('Failed to untag interviews from user', untagInterviewsError, { userId });
-      } else {
-        logger.info('Untagged interviews from user', { userId });
-      }
-
-      // Check for learning assessments
-      const { data: assessments } = await supabase
-        .from('learning_assessments')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-      if (assessments && assessments.length > 0) {
-        dataDependencies.push('learning assessments');
-      }
-
-      // Check for certificates
-      const { data: certificates } = await supabase
-        .from('certificates')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-      if (certificates && certificates.length > 0) {
-        dataDependencies.push('certificates');
-      }
-
-      // Check for learning assessment attempts
-      const { data: attempts } = await supabase
-        .from('learning_assessment_attempts')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-      if (attempts && attempts.length > 0) {
-        dataDependencies.push('assessment attempts');
-      }
-
-      if (dataDependencies.length > 0) {
-        logger.warn('User has data dependencies', { userId, dependencies: dataDependencies });
-        return new Response(
-          JSON.stringify({ 
-            error: 'Cannot delete user with existing data. User has: ' + dataDependencies.join(', '),
-            dependencies: dataDependencies,
-            suggestion: 'Consider anonymizing or archiving this data instead of deletion'
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Clean up user data in order
-      logger.info('Starting comprehensive data cleanup', { userId });
-      
-      // 1. Delete user roles
-      const { error: rolesError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (rolesError) {
-        logger.error('Failed to delete user roles', rolesError, { userId });
-      }
-
-      // 2. Delete custom role assignments
-      const { error: customRolesError } = await supabase
-        .from('user_custom_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (customRolesError) {
-        logger.error('Failed to delete custom roles', customRolesError, { userId });
-      }
-
-      // 3. Delete notifications
-      const { error: notificationsError } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('user_id', userId);
-
-      if (notificationsError) {
-        logger.error('Failed to delete notifications', notificationsError, { userId });
-      }
-
-      // 4. Delete onboarding progress
-      const { error: onboardingError } = await supabase
-        .from('onboarding_progress')
-        .delete()
-        .eq('user_id', userId);
-
-      if (onboardingError) {
-        logger.error('Failed to delete onboarding progress', onboardingError, { userId });
-      }
-
-      // 5. Delete security events
-      const { error: securityError } = await supabase
-        .from('security_events')
-        .delete()
-        .eq('user_id', userId);
-
-      if (securityError) {
-        logger.error('Failed to delete security events', securityError, { userId });
-      }
-
-      // 6. Delete user topic progress
-      const { error: topicProgressError } = await supabase
-        .from('user_topic_progress')
-        .delete()
-        .eq('user_id', userId);
-
-      if (topicProgressError) {
-        logger.error('Failed to delete topic progress', topicProgressError, { userId });
-      }
-
-      // 7. Delete user badges
-      const { error: badgesError } = await supabase
-        .from('user_badges')
-        .delete()
-        .eq('user_id', userId);
-
-      if (badgesError) {
-        logger.error('Failed to delete badges', badgesError, { userId });
-      }
-
-      // 8. Delete learning payments
-      const { error: paymentsError } = await supabase
-        .from('learning_payments')
-        .delete()
-        .eq('user_id', userId);
-
-      if (paymentsError) {
-        logger.error('Failed to delete learning payments', paymentsError, { userId });
-      }
-
-      // 9. Delete learning subscriptions
-      const { error: subscriptionsError } = await supabase
-        .from('learning_subscriptions')
-        .delete()
-        .eq('user_id', userId);
-
-      if (subscriptionsError) {
-        logger.error('Failed to delete learning subscriptions', subscriptionsError, { userId });
-      }
-
-      // 10. Delete learning assessment usage
-      const { error: usageError } = await supabase
-        .from('learning_assessment_usage')
-        .delete()
-        .eq('user_id', userId);
-
-      if (usageError) {
-        logger.error('Failed to delete assessment usage', usageError, { userId });
-      }
-
-      // 11. Delete password setup invitations
-      const { error: passwordInvError } = await supabase
-        .from('password_setup_invitations')
-        .delete()
-        .eq('user_id', userId);
-
-      if (passwordInvError) {
-        logger.error('Failed to delete password invitations', passwordInvError, { userId });
-      }
-
-      // 12. Delete inactive organization memberships
-      const { error: inactiveMembershipsError } = await supabase
-        .from('organization_members')
-        .delete()
-        .eq('user_id', userId)
-        .neq('status', 'active');
-
-      if (inactiveMembershipsError) {
-        logger.error('Failed to delete inactive memberships', inactiveMembershipsError, { userId });
-      }
-
-      // 13. Delete profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
-
-      if (profileError) {
-        logger.error('Failed to delete profile', profileError, { userId });
-      }
-
-      logger.info('Data cleanup completed, attempting auth deletion', { userId });
-
-      // 14. Finally delete user from auth.users
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
-
-      if (deleteError) {
-        logger.error('Failed to delete user from auth', deleteError, { userId });
-        
-        // Return detailed error message
-        return new Response(
-          JSON.stringify({ 
-            error: 'Failed to delete user. User may have created content (interviews, assessments, certificates) that must be handled first.',
-            details: deleteError.message,
-            suggestion: 'Check if user has created interviews, learning assessments, or earned certificates. Consider archiving or transferring ownership of this content before deletion.'
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      logger.info('User deleted successfully', { userId });
+      logger.info('User soft-deleted successfully', { userId, email: txResult?.user_email });
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({
+          success: true,
+          method: 'soft_delete',
+          message: `User "${txResult?.user_email}" soft-deleted. Can be restored within 30 days.`,
+          can_restore: true,
+          restore_before: txResult?.restore_before,
+          elevations: txResult?.elevations || []
+        }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // ═══════════════════════════════════════════
+    // DELETE CASCADE - now uses SOFT DELETE
+    // ═══════════════════════════════════════════
     if (action === 'delete-cascade') {
       const cascadeDeleteSchema = z.object({
         userId: z.string().uuid('Invalid user ID')
       });
 
       const { userId } = cascadeDeleteSchema.parse(requestBody);
-      logger.info('Cascade deleting user (with org removal)', { userId });
+      logger.info('Soft-deleting user with cascade', { userId });
 
-      // Prevent admin from deleting themselves
       if (userId === user.id) {
-        logger.warn('Attempted self-deletion', { userId });
         return new Response(
           JSON.stringify({ error: 'Cannot delete your own account' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Use transactional database function for atomic cascade deletion
-      const { data: txResult, error: txError } = await supabase.rpc('delete_user_cascade_tx', {
+      // Use soft_delete_user_tx (handles partner admin elevation)
+      const { data: txResult, error: txError } = await supabase.rpc('soft_delete_user_tx', {
         p_user_id: userId,
         p_admin_user_id: user.id
       });
 
       if (txError) {
-        logger.error('Cascade delete transaction failed', txError, { userId });
+        logger.error('Cascade soft delete failed', txError, { userId });
         
-        // Check if it's a data dependency error
-        if (txError.message?.includes('Cannot delete')) {
+        if (txError.message?.includes('Cannot delete') || txError.message?.includes('not found')) {
           return new Response(
-            JSON.stringify({ 
-              error: txError.message,
-              dependencies: txError.details || [],
-              suggestion: 'Consider anonymizing or archiving this data instead of deletion'
-            }),
+            JSON.stringify({ error: txError.message }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         
         return new Response(
-          JSON.stringify({ error: txError.message || 'Cascade deletion failed' }),
+          JSON.stringify({ error: txError.message || 'Cascade soft deletion failed' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      logger.info('Database cascade delete completed', { userId, txResult });
+      // Disable auth user (ban instead of delete)
+      const { error: banError } = await supabase.auth.admin.updateUserById(userId, {
+        ban_duration: '876000h'
+      });
 
-      // Now delete user from auth.users (external call after DB commit)
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
-
-      if (deleteError) {
-        logger.error('Failed to delete user from auth after cascade', deleteError, { userId });
-        return new Response(
-          JSON.stringify({ 
-            error: 'User data was removed but auth deletion failed: ' + deleteError.message,
-            partialSuccess: true,
-            elevations: txResult.elevations || []
-          }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (banError) {
+        logger.warn('Failed to ban auth user after cascade soft-delete', { userId, error: banError.message });
       }
 
-      logger.info('User cascade deleted successfully', { userId, elevations: txResult.elevations });
+      logger.info('User cascade soft-deleted successfully', { userId, elevations: txResult?.elevations });
       return new Response(
         JSON.stringify({ 
           success: true,
-          elevations: txResult.elevations || [],
-          message: txResult.elevations?.length > 0 
-            ? `User deleted. ${txResult.elevations.map((e: any) => `${e.new_admin_email} was elevated to partner admin for ${e.org_name}`).join('. ')}`
-            : 'User deleted successfully'
+          method: 'soft_delete',
+          message: txResult?.elevations?.length > 0 
+            ? `User soft-deleted. ${txResult.elevations.map((e: any) => `${e.new_admin_email} was elevated to partner admin for ${e.org_name}`).join('. ')}`
+            : 'User soft-deleted. Can be restored within 30 days.',
+          can_restore: true,
+          restore_before: txResult?.restore_before,
+          elevations: txResult?.elevations || []
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Handle get user org memberships action (for UI to display before deletion)
+    // ═══════════════════════════════════════════
+    // GET USER ORGS (unchanged)
+    // ═══════════════════════════════════════════
     if (action === 'get-user-orgs') {
       const getOrgsSchema = z.object({
         userId: z.string().uuid('Invalid user ID')
@@ -589,7 +360,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Check if user has partner_admin role
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('role')
@@ -611,7 +381,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Handle bulk delete users action
+    // ═══════════════════════════════════════════
+    // BULK DELETE - FIXED: now uses soft delete + proper cleanup
+    // Previously had a BUG: deleted auth users but left orphaned records
+    // ═══════════════════════════════════════════
     if (action === 'bulk-delete') {
       const bulkDeleteSchema = z.object({
         userIds: z.array(z.string().uuid('Invalid user ID')).min(1, 'At least one user ID required').max(100, 'Cannot delete more than 100 users at once')
@@ -619,7 +392,6 @@ Deno.serve(async (req) => {
 
       const { userIds } = bulkDeleteSchema.parse(requestBody);
 
-      // Prevent admin from deleting themselves
       if (userIds.includes(user.id)) {
         return new Response(
           JSON.stringify({ error: 'Cannot delete your own account' }),
@@ -632,19 +404,33 @@ Deno.serve(async (req) => {
         failed: [] as { userId: string; error: string }[]
       };
 
-      // Delete users one by one
+      // FIXED: Use soft_delete_user_tx for each user (not just auth deletion)
       for (const targetUserId of userIds) {
         try {
-          const { error: deleteError } = await supabase.auth.admin.deleteUser(targetUserId);
-          
-          if (deleteError) {
+          // Soft-delete user data via transaction
+          const { data: txResult, error: txError } = await supabase.rpc('soft_delete_user_tx', {
+            p_user_id: targetUserId,
+            p_admin_user_id: user.id
+          });
+
+          if (txError) {
             results.failed.push({
               userId: targetUserId,
-              error: deleteError.message
+              error: txError.message
             });
-          } else {
-            results.success.push(targetUserId);
+            continue;
           }
+
+          // Ban auth user (don't delete — allows restore)
+          const { error: banError } = await supabase.auth.admin.updateUserById(targetUserId, {
+            ban_duration: '876000h'
+          });
+
+          if (banError) {
+            logger.warn('Failed to ban auth user during bulk soft-delete', { userId: targetUserId });
+          }
+
+          results.success.push(targetUserId);
         } catch (err: any) {
           results.failed.push({
             userId: targetUserId,
@@ -653,11 +439,29 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Audit log for bulk operation
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        action: 'BULK_SOFT_DELETE_USERS',
+        table_name: 'profiles',
+        record_id: 'bulk',
+        metadata: {
+          total_requested: userIds.length,
+          successful: results.success.length,
+          failed: results.failed.length,
+          user_ids: userIds,
+          timestamp: new Date().toISOString()
+        }
+      });
+
       return new Response(
         JSON.stringify({ 
           success: true,
+          method: 'soft_delete',
           deleted: results.success.length,
           failed: results.failed.length,
+          can_restore: true,
+          message: `${results.success.length} users soft-deleted. Can be restored within 30 days.`,
           details: results
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
