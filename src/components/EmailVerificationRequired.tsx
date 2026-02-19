@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logger } from '@/lib/logger';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,7 +43,7 @@ export const EmailVerificationRequired = ({ userEmail, userName }: EmailVerifica
         description: `We've sent a new verification link to ${userEmail}`,
       });
     } catch (error) {
-      console.error('Failed to resend verification email:', error);
+      logger.error('Failed to resend verification email:', error);
       toast({
         title: "Failed to send email",
         description: "Please try again later or contact support.",

@@ -69,7 +69,7 @@ export const useCandidateBroadcast = ({
     return () => {
       // Cleanup on unmount
       if (broadcasterRef.current) {
-        broadcasterRef.current.stop().catch(console.error);
+        broadcasterRef.current.stop().catch((err) => logger.error('broadcaster stop error', err));
         broadcasterRef.current = null;
       }
     };

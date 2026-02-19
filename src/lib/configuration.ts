@@ -5,8 +5,8 @@
  * from the frontend. Only exposes non-sensitive tier 2 and tier 3 configs.
  */
 
-import { supabase } from "@/integrations/supabase/client";
-import { logger } from "@/lib/logger";
+import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 // ============================================================================
 // Configuration Keys Registry
@@ -152,7 +152,7 @@ export async function getPlatformConfigs(
       .in('key', keys);
 
     if (error) {
-      console.error('Error fetching configs:', error);
+      logger.error('Error fetching configs:', error);
       throw new Error('Configuration Error: Failed to fetch configurations');
     }
 
@@ -181,7 +181,7 @@ export async function getPlatformConfigs(
 
     return result;
   } catch (error) {
-    console.error('Configuration error:', error);
+    logger.error('Configuration error:', error);
     throw error;
   }
 }
@@ -201,7 +201,7 @@ export async function getConfigsByCategory(
       .eq('category', category);
 
     if (error) {
-      console.error(`Error fetching configs for category ${category}:`, error);
+      logger.error(`Error fetching configs for category ${category}:`, error);
       throw new Error(`Failed to fetch configurations for category: ${category}`);
     }
 
@@ -218,7 +218,7 @@ export async function getConfigsByCategory(
       uiComponent: row.ui_component,
     }));
   } catch (error) {
-    console.error(`Configuration error for category ${category}:`, error);
+    logger.error(`Configuration error for category ${category}:`, error);
     throw error;
   }
 }
@@ -245,11 +245,11 @@ export async function updatePlatformConfig(
       .eq('key', key);
 
     if (error) {
-      console.error(`Error updating config ${key}:`, error);
+      logger.error(`Error updating config ${key}:`, error);
       throw new Error(`Failed to update configuration: ${key}`);
     }
   } catch (error) {
-    console.error(`Configuration update error for ${key}:`, error);
+    logger.error(`Configuration update error for ${key}:`, error);
     throw error;
   }
 }
@@ -268,7 +268,7 @@ export async function updatePlatformConfigs(
 
     await Promise.all(promises);
   } catch (error) {
-    console.error('Batch configuration update error:', error);
+    logger.error('Batch configuration update error:', error);
     throw error;
   }
 }
@@ -302,13 +302,13 @@ export async function getManagementConfig(
     const { data, error } = await query.maybeSingle();
 
     if (error) {
-      console.error(`Error fetching management config ${key}:`, error);
+      logger.error(`Error fetching management config ${key}:`, error);
       return null;
     }
 
     return (data as any)?.value || null;
   } catch (error) {
-    console.error(`Management configuration error for ${key}:`, error);
+    logger.error(`Management configuration error for ${key}:`, error);
     return null;
   }
 }

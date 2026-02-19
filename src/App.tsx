@@ -150,11 +150,19 @@ const App = () => (
           <Route path="/take-learning-assessment/:id" element={<TakeLearningAssessment />} />
           <Route path="/learning-progress/:id" element={<LearningProgress />} />
           <Route path="/learning-feedback/:attemptId" element={<LearningFeedback />} />
-          <Route path="/partner/payment-setup" element={<PaymentSetup />} />
+          <Route path="/partner/payment-setup" element={
+            <ProtectedRoute requiredRoles={['platform_admin', 'partner_admin']}>
+              <PaymentSetup />
+            </ProtectedRoute>
+          } />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/reset-password/confirm" element={<ResetPasswordConfirm />} />
           <Route path="/pricing" element={<Pricing />} />
-          <Route path="/migration-plan-export" element={<MigrationPlanExportPage />} />
+          <Route path="/migration-plan-export" element={
+            <ProtectedRoute requiredRoles={['platform_admin']}>
+              <MigrationPlanExportPage />
+            </ProtectedRoute>
+          } />
           
           {/* All other routes */}
           <Route path="/" element={<Landing />} />

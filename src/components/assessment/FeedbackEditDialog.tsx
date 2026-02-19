@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logger } from '@/lib/logger';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -106,7 +107,7 @@ export function FeedbackEditDialog({
         throw new Error('Invalid response from AI');
       }
     } catch (err: any) {
-      console.error('Error refining feedback:', err);
+      logger.error('Error refining feedback:', err);
       toast.error(err.message || 'Failed to update feedback');
     } finally {
       setIsLoading(false);

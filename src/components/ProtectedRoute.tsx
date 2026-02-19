@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState } from 'react';
+import { logger } from '@/lib/logger';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRoles, AppRole } from '@/hooks/useUserRoles';
@@ -41,7 +42,7 @@ export const ProtectedRoute = ({
           .single();
 
         if (error) {
-          console.error('Error checking email verification:', error);
+          logger.error('Error checking email verification:', error);
           // Default to verified if we can't check (to not block existing users)
           setEmailVerified(true);
         } else {
@@ -49,7 +50,7 @@ export const ProtectedRoute = ({
           setUserProfile(profile);
         }
       } catch (err) {
-        console.error('Exception checking email verification:', err);
+        logger.error('Exception checking email verification:', err);
         setEmailVerified(true);
       } finally {
         setCheckingVerification(false);

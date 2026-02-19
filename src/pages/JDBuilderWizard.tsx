@@ -528,7 +528,7 @@ const JDBuilderWizard: React.FC = () => {
         toast.success('Job description enhanced successfully!');
       }
     } catch (error: any) {
-      console.error('Error enhancing JD:', error);
+      logger.error('Error enhancing JD:', error);
       toast.error(error.message || 'Failed to enhance job description');
     } finally {
       setIsEnhancingJD(false);
@@ -587,7 +587,7 @@ const JDBuilderWizard: React.FC = () => {
 
       toast.success('AI suggestions loaded! Review and adjust as needed.');
     } catch (error: any) {
-      console.error('Error fetching AI suggestions:', error);
+      logger.error('Error fetching AI suggestions:', error);
       toast.error('Failed to load AI suggestions. Using default skills.');
     } finally {
       setIsLoadingAISuggestions(false);
@@ -630,7 +630,7 @@ const JDBuilderWizard: React.FC = () => {
       }));
 
     } catch (error: any) {
-      console.error('Error fetching responsibility suggestions:', error);
+      logger.error('Error fetching responsibility suggestions:', error);
     } finally {
       setIsLoadingAISuggestions(false);
     }
@@ -673,7 +673,7 @@ const JDBuilderWizard: React.FC = () => {
       }
 
     } catch (error: any) {
-      console.error('Error fetching challenge suggestions:', error);
+      logger.error('Error fetching challenge suggestions:', error);
     }
   };
 

@@ -1,11 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { callAI } from "../_shared/ai-caller.ts";
 import { corsHeaders } from '../_shared/cors.ts';
+import { authenticateRequest } from '../_shared/auth-utils.ts';
 
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const authResult = await authenticateRequest(
+    req.headers.get('Authorization'),
+    ['platform_admin', 'partner_admin', 'hr_recruiter', 'tech_spoc']
+  );
+  if (authResult.error) {
+    return new Response(JSON.stringify({ error: authResult.error }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {

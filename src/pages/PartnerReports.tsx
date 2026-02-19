@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { logger } from '@/lib/logger';
 import { supabase } from "@/integrations/supabase/client";
 import { useOrganization } from "@/contexts/OrganizationContext";
 import { useUserFriendlyToast } from "@/hooks/useUserFriendlyToast";
@@ -394,7 +395,7 @@ export default function PartnerReports() {
 
       setData(transformedData);
     } catch (error: any) {
-      console.error("Error fetching report data:", error);
+      logger.error("Error fetching report data:", error);
       errorToast("Failed to fetch report data", error.message);
     } finally {
       setLoading(false);
@@ -479,7 +480,7 @@ export default function PartnerReports() {
 
       successToast("Export Complete", `Exported ${data.length} records to Excel`);
     } catch (error: any) {
-      console.error("Export error:", error);
+      logger.error("Export error:", error);
       errorToast("Export failed", error.message);
     } finally {
       setExporting(false);

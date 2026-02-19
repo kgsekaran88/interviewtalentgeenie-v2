@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Download, FileText, Loader2 } from 'lucide-react';
 import { exportMigrationPlanToPDF } from '@/lib/migrationPlanPdfExport';
@@ -15,7 +16,7 @@ export function MigrationPlanExport() {
         toast.success(`PDF exported: ${result.fileName}`);
       }
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error:', error);
       toast.error('Failed to export PDF');
     } finally {
       setIsExporting(false);

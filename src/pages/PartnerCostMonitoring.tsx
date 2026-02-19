@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { logger } from '@/lib/logger';
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -200,7 +201,7 @@ export default function PartnerCostMonitoring() {
       if (error) throw error;
       setOrganizations(data || []);
     } catch (error) {
-      console.error('Error fetching organizations:', error);
+      logger.error('Error fetching organizations:', error);
       toast.error('Failed to load organizations');
     } finally {
       // Set loading to false after organizations are fetched (initial page load)
@@ -608,7 +609,7 @@ export default function PartnerCostMonitoring() {
       setTrends(trendData);
 
     } catch (error) {
-      console.error('Error fetching usage data:', error);
+      logger.error('Error fetching usage data:', error);
       toast.error('Failed to load usage data');
     } finally {
       setLoading(false);
@@ -724,7 +725,7 @@ export default function PartnerCostMonitoring() {
 
       setInterviewCosts(costs);
     } catch (error) {
-      console.error('Error fetching interview costs:', error);
+      logger.error('Error fetching interview costs:', error);
       toast.error('Failed to load interview costs');
     } finally {
       setLoadingInterviewCosts(false);

@@ -26,16 +26,21 @@ services:
     image: supabase/postgres:15.8.1.085
     container_name: talentgeenie-db
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "0.5"
     ports:
       - "${POSTGRES_PORT:-54322}:5432"
     environment:
       POSTGRES_HOST: /var/run/postgresql
       PGPORT: "5432"
       POSTGRES_PORT: "5432"
-      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      PGDATABASE: ${POSTGRES_DB:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXP: ${JWT_EXP:-3600}
     volumes:
@@ -77,11 +82,16 @@ services:
     image: edoburu/pgbouncer:latest
     container_name: talentgeenie-pgbouncer
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.1"
     entrypoint: ["/entrypoint-custom.sh"]
     volumes:
       - ./docker/pgbouncer-entrypoint.sh:/entrypoint-custom.sh:ro
     environment:
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGBOUNCER_DB_HOST: db
       PGBOUNCER_DB_PORT: "5432"
       PGBOUNCER_LISTEN_PORT: "6432"
@@ -109,6 +119,11 @@ services:
     image: kong:2.8.1
     container_name: talentgeenie-kong
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
     ports:
       - "${KONG_HTTP_PORT:-8000}:8000/tcp"
       - "${KONG_HTTPS_PORT:-8443}:8443/tcp"
@@ -149,13 +164,18 @@ services:
     image: supabase/gotrue:v2.158.1
     container_name: talentgeenie-auth
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
 
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-postgres}
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
 
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:5173}
       GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS:-}
@@ -179,7 +199,7 @@ services:
       GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME:-TalentGeenie}
 
       GOTRUE_EXTERNAL_PHONE_ENABLED: ${ENABLE_PHONE_SIGNUP:-false}
-      GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM:-true}
+      GOTRUE_SMS_AUTOCONFIRM: ${ENABLE_PHONE_AUTOCONFIRM:-false}
 
       GOTRUE_RATE_LIMIT_EMAIL_SENT: 100
       GOTRUE_RATE_LIMIT_TOKEN_REFRESH: 150
@@ -203,8 +223,13 @@ services:
     image: postgrest/postgrest:v12.2.0
     container_name: talentgeenie-rest
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
     environment:
-      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-postgres}
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
       PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public,storage,graphql_public}
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
@@ -227,13 +252,18 @@ services:
     image: supabase/realtime:v2.30.34
     container_name: talentgeenie-realtime
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.25"
     environment:
       PORT: 4000
       DB_HOST: db
       DB_PORT: 5432
       DB_USER: supabase_admin
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
       DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
       DB_ENC: "true"
       API_JWT_SECRET: ${JWT_SECRET}
@@ -268,12 +298,17 @@ services:
     image: supabase/storage-api:v1.11.13
     container_name: talentgeenie-storage
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
     environment:
       ANON_KEY: ${ANON_KEY}
       SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGREST_URL: http://rest:3000
       PGRST_JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-postgres}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
       FILE_SIZE_LIMIT: 52428800
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
@@ -308,6 +343,11 @@ services:
     image: darthsim/imgproxy:v3.8.0
     container_name: talentgeenie-imgproxy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
     environment:
       IMGPROXY_BIND: ":8080"
       IMGPROXY_LOCAL_FILESYSTEM_ROOT: /
@@ -332,13 +372,18 @@ services:
     image: supabase/postgres-meta:v0.84.2
     container_name: talentgeenie-meta
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.1"
     environment:
       PG_META_PORT: 8080
       PG_META_DB_HOST: db
       PG_META_DB_PORT: 5432
-      PG_META_DB_NAME: ${POSTGRES_DB:-postgres}
+      PG_META_DB_NAME: ${POSTGRES_DB}
       PG_META_DB_USER: supabase_admin
-      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
     networks:
       - talentgeenie-network
     depends_on:
@@ -354,11 +399,16 @@ services:
     image: supabase/studio:20241029-46e1e40
     container_name: talentgeenie-studio
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.25"
     ports:
       - "${STUDIO_PORT:-3000}:3000/tcp"
     environment:
       STUDIO_PG_META_URL: http://meta:8080
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       DEFAULT_ORGANIZATION_NAME: ${STUDIO_DEFAULT_ORGANIZATION:-TalentGeenie}
       DEFAULT_PROJECT_NAME: ${STUDIO_DEFAULT_PROJECT:-InterviewTalentGeenie}
       SUPABASE_URL: http://kong:8000
@@ -393,13 +443,18 @@ services:
     image: supabase/edge-runtime:v1.70.3
     container_name: talentgeenie-functions
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
     environment:
       JWT_SECRET: ${JWT_SECRET}
       SUPABASE_URL: http://kong:8000
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
-      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@pgbouncer:6432/${POSTGRES_DB:-postgres}
-      VERIFY_JWT: ${FUNCTIONS_VERIFY_JWT:-false}
+      SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      VERIFY_JWT: ${FUNCTIONS_VERIFY_JWT:-true}
       # App-specific secrets
       AI_GATEWAY_URL: ${AI_GATEWAY_URL:-}
       AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
@@ -437,9 +492,9 @@ services:
     environment:
       PGHOST: db
       PGPORT: 5432
-      PGDATABASE: ${POSTGRES_DB:-postgres}
+      PGDATABASE: ${POSTGRES_DB}
       PGUSER: supabase_admin
-      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - ./migrations/fresh-deploy:/migrations/fresh-deploy:ro
       - ./supabase/migrations:/migrations/incremental:ro
@@ -452,8 +507,47 @@ services:
         condition: service_healthy
     entrypoint: ["bash", "/run-bootstrap.sh"]
     restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.1"
     labels:
       - "com.talentgeenie.service=db-migrations"
+
+  # ---------------------------------------------------------------------------
+  # 12. DB Backup — Daily pg_dump via supercronic cron scheduler
+  # ---------------------------------------------------------------------------
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:15
+    container_name: talentgeenie-db-backup
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.1"
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_EXTRA_OPTS: "-Z6 --schema=public --blobs"
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 3
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - db-backups:/backups
+    networks:
+      - talentgeenie-network
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - "com.talentgeenie.service=db-backup"
 
 # =============================================================================
 # Volumes
@@ -462,6 +556,8 @@ volumes:
   db-data:
     driver: local
   storage-data:
+    driver: local
+  db-backups:
     driver: local
 
 # =============================================================================

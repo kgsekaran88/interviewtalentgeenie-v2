@@ -7,6 +7,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { FunctionInvokeOptions } from '@supabase/functions-js';
+import { logger } from '@/lib/logger';
 
 export interface InvokeOptions extends Omit<FunctionInvokeOptions, 'headers'> {
   headers?: Record<string, string>;
@@ -74,7 +75,7 @@ export async function invokeFunction<T = any>(
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
   if (sessionError) {
-    console.error('[invokeFunction] Session error:', sessionError);
+    logger.error('[invokeFunction] Session error:', sessionError);
     return {
       data: null,
       error: {
@@ -89,25 +90,25 @@ export async function invokeFunction<T = any>(
 
   // Check if token exists but is expired - if so, refresh it
   if (accessToken && isTokenExpired(accessToken)) {
-    console.log('[invokeFunction] Token expired, refreshing...');
+    logger.debug('[invokeFunction] Token expired, refreshing...');
     const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
     if (!refreshError && refreshData.session?.access_token) {
       accessToken = refreshData.session.access_token;
       didRefresh = true;
-      console.log('[invokeFunction] Token refreshed successfully');
+      logger.debug('[invokeFunction] Token refreshed successfully');
     } else {
-      console.error('[invokeFunction] Failed to refresh expired token:', refreshError);
+      logger.error('[invokeFunction] Failed to refresh expired token:', refreshError);
     }
   }
 
   // If no token at all, try a refresh
   if (!accessToken) {
-    console.log('[invokeFunction] No access token, attempting refresh...');
+    logger.debug('[invokeFunction] No access token, attempting refresh...');
     const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
     if (!refreshError && refreshData.session?.access_token) {
       accessToken = refreshData.session.access_token;
       didRefresh = true;
-      console.log('[invokeFunction] Got token from refresh');
+      logger.debug('[invokeFunction] Got token from refresh');
     }
   }
 
@@ -121,7 +122,7 @@ export async function invokeFunction<T = any>(
   }
 
   const tokenParts = accessToken ? accessToken.split('.').length : 0;
-  console.debug('[invokeFunction] Calling', functionName, { hasAuth: !!accessToken, didRefresh, tokenParts });
+  logger.debug('[invokeFunction] Calling', functionName, { hasAuth: !!accessToken, didRefresh, tokenParts });
 
   // Invoke the function with merged headers
   let result = await supabase.functions.invoke<T>(functionName, {

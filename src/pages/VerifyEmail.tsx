@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from '@/lib/logger';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +29,7 @@ const VerifyEmail = () => {
         });
 
         if (error) {
-          console.error('Verification error:', error);
+          logger.error('Verification error:', error);
           if (error.message?.includes('expired')) {
             setStatus('expired');
             setMessage('Your verification link has expired. Please request a new one.');
@@ -48,7 +49,7 @@ const VerifyEmail = () => {
           setMessage(data?.error || 'Verification failed. Please try again.');
         }
       } catch (err) {
-        console.error('Verification exception:', err);
+        logger.error('Verification exception:', err);
         setStatus('error');
         setMessage('An unexpected error occurred. Please try again.');
       }

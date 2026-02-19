@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { logger } from '@/lib/logger';
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -524,7 +525,7 @@ const Dashboard = () => {
                 const blob = await generateExcelTemplate('Interview Configuration');
                 downloadBlob(blob, 'interview-configuration-template.xlsx');
               } catch (error) {
-                console.error('Error downloading template:', error);
+                logger.error('Error downloading template:', error);
               }
             }}
             className="group"

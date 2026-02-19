@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -101,7 +102,7 @@ What would you like to do?`,
       );
 
     } catch (error: any) {
-      console.error('Chat error:', error);
+      logger.error('Chat error:', error);
       
       const errorMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
