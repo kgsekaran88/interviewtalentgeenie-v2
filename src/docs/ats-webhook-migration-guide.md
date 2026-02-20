@@ -81,7 +81,7 @@ const axios = require('axios');
 
 // Your webhook secret from TalentGeenie
 const WEBHOOK_SECRET = process.env.TALENTGEENIE_WEBHOOK_SECRET;
-const WEBHOOK_URL = 'https://vtztavcqjmirktkjdprm.supabase.co/functions/v1/ats-webhook';
+const WEBHOOK_URL = 'https://interviewai.talentgeenie.com/functions/v1/ats-webhook';
 
 function sendWebhook(payload) {
   // Generate timestamp (current time in seconds)
@@ -159,7 +159,7 @@ import requests
 
 # Your webhook secret from TalentGeenie
 WEBHOOK_SECRET = "sk_live_abc123def456ghi789jkl012mno345pqr"
-WEBHOOK_URL = "https://vtztavcqjmirktkjdprm.supabase.co/functions/v1/ats-webhook"
+WEBHOOK_URL = "https://interviewai.talentgeenie.com/functions/v1/ats-webhook"
 
 def send_webhook(payload):
     # Generate timestamp (current time in seconds)
@@ -232,7 +232,7 @@ except Exception as e:
 
 // Your webhook secret from TalentGeenie
 define('WEBHOOK_SECRET', 'sk_live_abc123def456ghi789jkl012mno345pqr');
-define('WEBHOOK_URL', 'https://vtztavcqjmirktkjdprm.supabase.co/functions/v1/ats-webhook');
+define('WEBHOOK_URL', 'https://interviewai.talentgeenie.com/functions/v1/ats-webhook');
 
 function sendWebhook($payload) {
     // Generate timestamp (current time in seconds)
@@ -319,7 +319,7 @@ require 'time'
 
 # Your webhook secret from TalentGeenie
 WEBHOOK_SECRET = 'sk_live_abc123def456ghi789jkl012mno345pqr'
-WEBHOOK_URL = 'https://vtztavcqjmirktkjdprm.supabase.co/functions/v1/ats-webhook'
+WEBHOOK_URL = 'https://interviewai.talentgeenie.com/functions/v1/ats-webhook'
 
 def send_webhook(payload)
   # Generate timestamp (current time in seconds)
@@ -403,7 +403,7 @@ import java.util.*;
 
 public class WebhookSender {
     private static final String WEBHOOK_SECRET = "sk_live_abc123def456ghi789jkl012mno345pqr";
-    private static final String WEBHOOK_URL = "https://vtztavcqjmirktkjdprm.supabase.co/functions/v1/ats-webhook";
+    private static final String WEBHOOK_URL = "https://interviewai.talentgeenie.com/functions/v1/ats-webhook";
     
     public static void sendWebhook(Map<String, Object> payload) throws Exception {
         // Generate timestamp
@@ -474,7 +474,7 @@ public class WebhookSender {
 Use our test endpoint to verify your signature implementation:
 
 ```bash
-curl -X POST https://vtztavcqjmirktkjdprm.supabase.co/functions/v1/ats-webhook \
+curl -X POST https://interviewai.talentgeenie.com/functions/v1/ats-webhook \
   -H "Content-Type: application/json" \
   -H "x-webhook-signature: YOUR_COMPUTED_SIGNATURE" \
   -H "x-webhook-timestamp: CURRENT_TIMESTAMP" \

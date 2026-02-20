@@ -538,7 +538,7 @@ GROUP BY ps.id;
 
 **Test 1: No Auth Header**
 ```bash
-curl -X POST 'https://vtztavcqjmirktkjdprm.supabase.co/functions/v1/upload-proctoring-recording' \
+curl -X POST 'https://interviewai.talentgeenie.com/functions/v1/upload-proctoring-recording' \
   -F 'sessionId=test-123' \
   -F 'recordingType=video' \
   -F 'file=@test-video.webm'

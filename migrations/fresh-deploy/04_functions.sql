@@ -2033,8 +2033,12 @@ DECLARE
   v_include_video_analysis BOOLEAN;
 BEGIN
   IF NEW.status = 'submitted' AND (OLD.status IS NULL OR OLD.status != 'submitted') THEN
-    v_supabase_url := 'https://aiwekrfwhdwvbnrkuurh.supabase.co';
-    v_anon_key := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpd2VrcmZ3aGR3dmJucmt1dXJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk4Njg1NjMsImV4cCI6MjA3NTQ0NDU2M30.jF_mXJNn30Gbxm8lPPCfRb19FXpq9eca4wDpo8xmu3o';
+    -- Read URL from system_config; fallback to PostgreSQL app setting (no hardcoded URL)
+    SELECT value INTO v_supabase_url FROM system_config WHERE key = 'supabase_project_url';
+    IF v_supabase_url IS NULL THEN
+      v_supabase_url := current_setting('app.settings.supabase_url', true);
+    END IF;
+    v_anon_key := current_setting('app.settings.service_role_key', true);
     v_include_video_analysis := (OLD.status = 'pending_upload');
     
     PERFORM net.http_post(
@@ -2234,7 +2238,7 @@ BEGIN
     v_service_key := current_setting('app.settings.service_role_key', true);
     
     IF v_supabase_url IS NULL THEN
-      v_supabase_url := 'https://aiwekrfwhdwvbnrkuurh.supabase.co';
+      v_supabase_url := current_setting('app.settings.supabase_url', true);
     END IF;
     
     IF v_service_key IS NULL THEN

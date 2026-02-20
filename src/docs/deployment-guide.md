@@ -501,9 +501,9 @@ Your app uses Lovable Cloud, which means **environment variables are auto-config
 
 ```env
 # Supabase (Lovable Cloud) Configuration
-VITE_SUPABASE_URL=https://vtztavcqjmirktkjdprm.supabase.co
+VITE_SUPABASE_URL=https://interviewai.talentgeenie.com
 VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-VITE_SUPABASE_PROJECT_ID=vtztavcqjmirktkjdprm
+VITE_SUPABASE_PROJECT_ID=production
 ```
 
 ### Getting Your Credentials
