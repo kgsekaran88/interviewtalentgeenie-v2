@@ -39,7 +39,7 @@ const MyLearningPlan = () => {
           training_plans(*)
         `)
         .eq("user_id", user.id)
-        .order("assigned_at", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -215,7 +215,7 @@ const MyLearningPlan = () => {
                   variant={selectedPlan?.id === assignment.training_plan_id ? "default" : "outline"}
                   onClick={() => loadPlanDetails(assignment.training_plan_id)}
                 >
-                  {assignment.training_plans?.role_name}
+                  {assignment.training_plans?.name}
                 </Button>
               ))}
             </div>
@@ -229,9 +229,9 @@ const MyLearningPlan = () => {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
-                  <CardTitle className="text-2xl">{selectedPlan.role_name}</CardTitle>
+                  <CardTitle className="text-2xl">{selectedPlan.name}</CardTitle>
                   <CardDescription className="mt-2">
-                    {selectedPlan.role_description}
+                    {selectedPlan.description}
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="text-lg px-3 py-1">
@@ -282,20 +282,20 @@ const MyLearningPlan = () => {
                           <span className="text-2xl font-bold text-muted-foreground">
                             {String(idx + 1).padStart(2, "0")}
                           </span>
-                          <CardTitle>{topic.topic_name}</CardTitle>
+                          <CardTitle>{topic.name}</CardTitle>
                           {topicProgress?.status === "completed" && (
                             <CheckCircle className="w-5 h-5 text-green-500" />
                           )}
                         </div>
-                        {topic.subtopic && (
-                          <CardDescription className="mt-1">{topic.subtopic}</CardDescription>
+                        {topic.description && (
+                          <CardDescription className="mt-1">{topic.description}</CardDescription>
                         )}
                       </div>
                       <div className="flex gap-2 items-center">
-                        <Badge variant="outline">{topic.difficulty_level}</Badge>
+                        {topic.is_required && <Badge variant="outline">Required</Badge>}
                         <Badge variant="secondary">
                           <Clock className="w-3 h-3 mr-1" />
-                          {topic.estimated_duration}h
+                          {topic.estimated_duration_minutes ? `${Math.round(topic.estimated_duration_minutes / 60)}h` : 'N/A'}
                         </Badge>
                       </div>
                     </div>

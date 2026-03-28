@@ -57,8 +57,8 @@ export async function signInViaAPI(page: Page, userKey: TestUserKey): Promise<vo
 
   const { access_token, refresh_token, expires_in, token_type, user: authUser } = body;
 
-  // Go to a page to set localStorage
-  await page.goto('/');
+  // Go to the auth page to set localStorage (stable — won't redirect away)
+  await page.goto('/auth');
   await page.waitForLoadState('domcontentloaded');
 
   // Set the session in localStorage (same key Supabase JS client uses)
@@ -108,4 +108,30 @@ export async function signOut(page: Page): Promise<void> {
 export async function expectOnAuthPage(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/auth/);
   await expect(page.getByText('Welcome to TalentGeenie')).toBeVisible();
+}
+
+/**
+ * Navigate to a route and verify that access is denied.
+ *
+ * ProtectedRoute can deny access in two ways:
+ *   1. Redirect to /auth (unauthenticated) or another allowed page
+ *   2. Render an inline "Access Denied" alert at the same URL
+ *
+ * This helper handles both cases.
+ */
+export async function expectAccessDenied(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await page.waitForLoadState('networkidle');
+
+  const url = page.url();
+
+  // If the URL no longer contains the target path, denial via redirect — pass
+  if (!url.includes(path)) return;
+
+  // Check for inline "Access Denied" alert OR "Verify Your Email" page
+  // Both are valid denial states — user cannot access the protected content
+  const accessDenied = page.getByText(/access denied/i).first();
+  const verifyEmail = page.getByText(/verify your email/i).first();
+  const denialLocator = accessDenied.or(verifyEmail);
+  await expect(denialLocator, `Expected access DENIED for ${path} but page rendered without denial message`).toBeVisible({ timeout: 10_000 });
 }

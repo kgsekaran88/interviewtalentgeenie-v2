@@ -45,7 +45,7 @@ interface Subscription {
 }
 
 export default function PartnerBilling() {
-  const { user, hasAnyRole } = useAuth();
+  const { user, hasAnyRole, loading: authLoading } = useAuth();
   const { userOrgId } = useOrganization();
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -57,15 +57,22 @@ export default function PartnerBilling() {
   const canAccessBilling = hasAnyRole(['partner_admin', 'platform_admin', 'billing_contact']);
 
   useEffect(() => {
+    // Don't check access until auth is fully loaded
+    if (authLoading) return;
+
     if (!canAccessBilling) {
       setAccessDenied(true);
       setLoading(false);
       return;
     }
+
+    // Reset access denied if roles loaded and user has access
+    setAccessDenied(false);
+
     if (user && userOrgId) {
       fetchBillingData();
     }
-  }, [user, userOrgId, canAccessBilling]);
+  }, [user, userOrgId, canAccessBilling, authLoading]);
 
   const fetchBillingData = async () => {
     try {

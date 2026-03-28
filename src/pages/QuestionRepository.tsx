@@ -33,7 +33,7 @@ type Question = {
 
 export default function QuestionRepository() {
   const { user } = useAuth();
-  const { isTechSPOC, hasAnyRole } = useUserRoles();
+  const { isTechSPOC, hasAnyRole, loading: rolesLoading } = useUserRoles();
   const { toast, errorToast, successToast } = useUserFriendlyToast();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,6 +194,14 @@ export default function QuestionRepository() {
   });
 
   const topics = Array.from(new Set(questions.map(q => q.topic)));
+
+  if (rolesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (!hasAnyRole(['platform_admin', 'tech_spoc', 'hr_recruiter'])) {
     return (

@@ -37,6 +37,12 @@ export const TEST_USERS = {
     fullName: 'E2E Tech SPOC',
     role: 'tech_spoc' as const,
   },
+  billingContact: {
+    email: 'e2e-billing@talentgeenie.test',
+    password: 'TestBilling123!@#',
+    fullName: 'E2E Billing Contact',
+    role: 'billing_contact' as const,
+  },
   guest: {
     email: 'e2e-guest@talentgeenie.test',
     password: 'TestGuest123!@#',
@@ -59,7 +65,7 @@ export function getAdminClient(): SupabaseClient {
   return _adminClient;
 }
 
-// ─── Helper: create or retrieve a test user ──────────────────────────────────
+// ─── Helper: create or retrieve a test user (with retry) ─────────────────────
 export async function ensureTestUser(
   userKey: TestUserKey,
 ): Promise<{ id: string; email: string }> {
@@ -71,19 +77,44 @@ export async function ensureTestUser(
   const found = existing?.users?.find((u) => u.email === user.email);
 
   if (found) {
+    // Always update password to match TEST_USERS (may have been changed externally)
+    await admin.auth.admin.updateUserById(found.id, {
+      password: user.password,
+      email_confirm: true,
+    });
     return { id: found.id, email: found.email! };
   }
 
-  // Create user (auto-confirms email)
-  const { data: created, error } = await admin.auth.admin.createUser({
-    email: user.email,
-    password: user.password,
-    email_confirm: true,
-    user_metadata: { full_name: user.fullName },
-  });
+  // Create user with retry (auto-confirms email)
+  const MAX_RETRIES = 3;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const { data: created, error } = await admin.auth.admin.createUser({
+      email: user.email,
+      password: user.password,
+      email_confirm: true,
+      user_metadata: { full_name: user.fullName },
+    });
 
-  if (error) throw new Error(`Failed to create ${userKey}: ${error.message}`);
-  return { id: created.user.id, email: created.user.email! };
+    if (!error && created?.user) {
+      return { id: created.user.id, email: created.user.email! };
+    }
+
+    if (attempt < MAX_RETRIES) {
+      console.log(`  ⚠️  Retry ${attempt}/${MAX_RETRIES} for ${userKey}: ${error?.message}`);
+      await new Promise((r) => setTimeout(r, 2000 * attempt));
+
+      // Re-check if user was actually created despite the error
+      const { data: recheck } = await admin.auth.admin.listUsers();
+      const recheckFound = recheck?.users?.find((u) => u.email === user.email);
+      if (recheckFound) {
+        return { id: recheckFound.id, email: recheckFound.email! };
+      }
+    } else {
+      throw new Error(`Failed to create ${userKey} after ${MAX_RETRIES} attempts: ${error?.message}`);
+    }
+  }
+
+  throw new Error(`Failed to create ${userKey}: unexpected code path`);
 }
 
 // ─── Helper: assign role to a test user ──────────────────────────────────────
@@ -111,25 +142,28 @@ export async function assignRole(userId: string, role: string): Promise<void> {
 export async function ensureProfile(userId: string, fullName: string, email: string): Promise<void> {
   const admin = getAdminClient();
 
-  const { data: existing } = await admin
-    .from('profiles')
-    .select('id')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (existing) return;
-
+  // Always upsert with email_verified = true to prevent verification screens blocking tests
   const { error } = await admin
     .from('profiles')
-    .insert({
+    .upsert({
       id: userId,
       full_name: fullName,
       email,
       email_verified: true,
-      onboarding_completed: true,
-    });
+    }, { onConflict: 'id' });
 
-  if (error) throw new Error(`Failed to create profile for ${userId}: ${error.message}`);
+  if (error) throw new Error(`Failed to upsert profile for ${userId}: ${error.message}`);
+
+  // Explicit update as safety net — the upsert via PostgREST sometimes doesn't
+  // reliably update email_verified for existing rows
+  const { error: updateError } = await admin
+    .from('profiles')
+    .update({ email_verified: true, full_name: fullName })
+    .eq('id', userId);
+
+  if (updateError) {
+    console.warn(`  ⚠️  ensureProfile update fallback failed for ${userId}: ${updateError.message}`);
+  }
 }
 
 // ─── Helper: create a test organization ──────────────────────────────────────

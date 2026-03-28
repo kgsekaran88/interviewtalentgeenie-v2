@@ -1,0 +1,8 @@
+"postgres" ""
+"authenticator" ""
+"supabase_auth_admin" ""
+"supabase_storage_admin" ""
+"supabase_admin" ""
+"anon" ""
+"authenticated" ""
+"service_role" ""
