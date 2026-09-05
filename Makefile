@@ -134,7 +134,7 @@ keys-append: ## Generate keys and append to .env.supabase
 # Frontend (Vite dev server)
 # =============================================================================
 
-frontend: ## Start Vite dev server (frontend)
+frontend: ## Start Vite (requires Supabase Docker already up)
 	@npm run dev
 
 frontend-build: ## Build frontend for production
@@ -142,6 +142,10 @@ frontend-build: ## Build frontend for production
 
 frontend-preview: ## Preview production build locally
 	@npm run preview
+
+local: ## Start Supabase Docker + Vite frontend together
+	@chmod +x scripts/run-local.sh
+	@./scripts/run-local.sh
 
 install: ## Install frontend dependencies
 	@npm install

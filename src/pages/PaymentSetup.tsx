@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, CreditCard, CheckCircle2, Loader2 } from "lucide-react";
 import { useUserFriendlyToast } from "@/hooks/useUserFriendlyToast";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 
 export default function PaymentSetup() {
   const [searchParams] = useSearchParams();
@@ -18,6 +19,7 @@ export default function PaymentSetup() {
 
   const orgId = searchParams.get("org");
   const subId = searchParams.get("sub");
+  const onlinePayments = isFeatureEnabled("onlinePayments");
 
   useEffect(() => {
     if (orgId && subId) {
@@ -61,18 +63,25 @@ export default function PaymentSetup() {
   };
 
   const handleConfigureStripe = () => {
-    // Show instructions to configure Stripe
     toast({
-      title: "Configure Stripe",
-      description: "Please add your Stripe secret key in the project settings to enable payments.",
+      title: "Online payments on hold",
+      description: "Card checkout is deferred. Use offline/invoice payment with your TalentGeenie contact.",
       duration: 10000,
     });
+  };
+
+  const handleContinueOffline = async () => {
+    successToast(
+      "Continue with offline payment",
+      "Your organization is ready. Contact Support@talentgeenie.com to complete invoice payment and activate the plan."
+    );
+    navigate("/partner/portal");
   };
 
   const handleSkipForNow = async () => {
     toast({
       title: "Setup Incomplete",
-      description: "You'll need to configure payment before the subscription can be activated.",
+      description: "You'll need to complete offline payment before the subscription can be activated.",
     });
     navigate("/partner/portal");
   };
@@ -134,23 +143,33 @@ export default function PaymentSetup() {
           </Card>
         )}
 
-        <Alert variant="destructive">
+        <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Stripe Not Configured</AlertTitle>
+          <AlertTitle>{onlinePayments ? "Stripe Not Configured" : "Offline payments only"}</AlertTitle>
           <AlertDescription className="space-y-3">
-            <p>
-              To complete payment and activate your subscription, Stripe needs to be configured.
-              Please add your Stripe secret key in the project settings.
-            </p>
-            <div className="space-y-2 mt-3">
-              <p className="font-semibold">To configure Stripe:</p>
-              <ol className="list-decimal list-inside space-y-1 text-sm">
-                <li>Go to your Stripe Dashboard</li>
-                <li>Get your Secret Key (starts with sk_)</li>
-                <li>Add it to the project's secret management</li>
-                <li>Return here to complete payment</li>
-              </ol>
-            </div>
+            {onlinePayments ? (
+              <>
+                <p>
+                  To complete payment and activate your subscription, Stripe needs to be configured.
+                  Please add your Stripe secret key in the project settings.
+                </p>
+                <div className="space-y-2 mt-3">
+                  <p className="font-semibold">To configure Stripe:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-sm">
+                    <li>Go to your Stripe Dashboard</li>
+                    <li>Get your Secret Key (starts with sk_)</li>
+                    <li>Add it to the project's secret management</li>
+                    <li>Return here to complete payment</li>
+                  </ol>
+                </div>
+              </>
+            ) : (
+              <p>
+                Online card checkout is on hold. TalentGeenie currently accepts offline/invoice
+                payments. Contact Support@talentgeenie.com with your organization name to receive
+                an invoice and activate your plan.
+              </p>
+            )}
           </AlertDescription>
         </Alert>
 
@@ -160,15 +179,23 @@ export default function PaymentSetup() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Your organization has been created but payment needs to be configured.
-              Once Stripe is set up, you can complete the payment process and activate your subscription.
+              {onlinePayments
+                ? "Your organization has been created but payment needs to be configured. Once Stripe is set up, you can complete the payment process and activate your subscription."
+                : "Your organization has been created. Continue to the portal and arrange offline payment to activate the subscription."}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button onClick={handleConfigureStripe} className="flex-1 min-h-[44px]">
-                <CreditCard className="w-4 h-4 mr-2" />
-                Setup Stripe Now
-              </Button>
+              {onlinePayments ? (
+                <Button onClick={handleConfigureStripe} className="flex-1 min-h-[44px]">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Setup Stripe Now
+                </Button>
+              ) : (
+                <Button onClick={handleContinueOffline} className="flex-1 min-h-[44px]">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Continue with Offline Payment
+                </Button>
+              )}
               <Button variant="outline" onClick={handleSkipForNow} className="flex-1 min-h-[44px]">
                 I'll Configure Later
               </Button>

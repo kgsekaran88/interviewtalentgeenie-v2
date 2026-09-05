@@ -131,3 +131,42 @@ export async function hasAnyRole(userId: string, requiredRoles: string[]): Promi
   const roles = await getUserRoles(userId);
   return roles.includes('platform_admin') || roles.some(r => requiredRoles.includes(r));
 }
+
+/**
+ * Authorize cron/worker edge functions.
+ * Accepts (in order):
+ * 1. Bearer SERVICE_ROLE_KEY
+ * 2. x-scheduled-secret matching SCHEDULED_CLEANUP_SECRET
+ * 3. User JWT with one of requiredRoles (default: platform_admin)
+ */
+export async function authorizeWorkerRequest(
+  req: Request,
+  requiredRoles: string[] = ['platform_admin']
+): Promise<{ authorized: boolean; userId?: string; error?: string }> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const authHeader = req.headers.get('Authorization');
+
+  if (authHeader?.includes(supabaseServiceKey)) {
+    return { authorized: true };
+  }
+
+  const scheduledSecret = req.headers.get('x-scheduled-secret');
+  const expectedSecret = Deno.env.get('SCHEDULED_CLEANUP_SECRET');
+  if (scheduledSecret && expectedSecret && scheduledSecret === expectedSecret) {
+    return { authorized: true };
+  }
+
+  if (authHeader) {
+    const auth = await authenticateRequest(authHeader, requiredRoles);
+    if (!auth.error && auth.user) {
+      return { authorized: true, userId: auth.user.id };
+    }
+    return { authorized: false, error: auth.error || 'Unauthorized' };
+  }
+
+  return {
+    authorized: false,
+    error: 'Unauthorized. Requires service role, scheduled secret, or admin JWT.',
+  };
+}

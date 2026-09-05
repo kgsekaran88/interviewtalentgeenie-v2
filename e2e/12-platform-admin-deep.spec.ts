@@ -31,13 +31,12 @@ test.describe('Platform Admin — Deep', () => {
 
       await expect(page.getByRole('heading', { name: /Platform Admin Hub/i })).toBeVisible({ timeout: 15_000 });
 
-      // All 7 category groups
+      // Launch-visible categories (Learning/Cert hub section hidden while flags are off)
       for (const cat of [
         'Critical Operations',
         'Billing',
         'Monitoring',
         'Communications',
-        'Learning',
         'AI',
         'DevOps',
       ]) {

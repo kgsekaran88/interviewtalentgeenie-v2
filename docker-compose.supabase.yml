@@ -84,7 +84,7 @@ services:
   # Services on direct DB: realtime (needs persistent), meta, migrations.
   # ---------------------------------------------------------------------------
   pgbouncer:
-    image: edoburu/pgbouncer:v1.25.1
+    image: edoburu/pgbouncer:latest
     container_name: talentgeenie-pgbouncer
     restart: unless-stopped
     logging:
@@ -97,7 +97,9 @@ services:
         limits:
           memory: 128m
           cpus: "0.1"
-    entrypoint: ["/entrypoint-custom.sh"]
+    # Use sh wrapper — direct exec of bind-mounted scripts fails on Docker Desktop macOS
+    # with "resource deadlock avoided" (EDEADLK).
+    entrypoint: ["/bin/sh", "/entrypoint-custom.sh"]
     volumes:
       - ./docker/pgbouncer-entrypoint.sh:/entrypoint-custom.sh:ro
     environment:
@@ -137,14 +139,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256m
-          cpus: "0.25"
+          memory: 1g
+          cpus: "0.5"
     ports:
       - "${KONG_HTTP_PORT:-8000}:8000/tcp"
       - "${KONG_HTTPS_PORT:-8443}:8443/tcp"
     environment:
       KONG_DATABASE: "off"
-      KONG_DECLARATIVE_CONFIG: /home/kong/kong.yml
+      KONG_DECLARATIVE_CONFIG: /tmp/kong.yml
       KONG_DNS_ORDER: LAST,A,CNAME
       KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
@@ -157,7 +159,7 @@ services:
       - ./docker/volumes/api/kong.yml:/home/kong/temp.yml:ro
     entrypoint: >
       bash -c '
-      sed "s|\$${ANON_KEY}|$$ANON_KEY|g; s|\$${SERVICE_ROLE_KEY}|$$SERVICE_ROLE_KEY|g; s|\$${FRONTEND_URL}|$$FRONTEND_URL|g" /home/kong/temp.yml > /home/kong/kong.yml &&
+      sed "s|\$${ANON_KEY}|$$ANON_KEY|g; s|\$${SERVICE_ROLE_KEY}|$$SERVICE_ROLE_KEY|g; s|\$${FRONTEND_URL}|$$FRONTEND_URL|g" /home/kong/temp.yml > /tmp/kong.yml &&
       /docker-entrypoint.sh kong docker-start'
     networks:
       - talentgeenie-network
@@ -195,7 +197,7 @@ services:
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
 
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
 
       GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:5173}
       GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS:-}
@@ -520,6 +522,8 @@ services:
       GOOGLE_GEMINI_API_KEY: ${GOOGLE_GEMINI_API_KEY:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SUPABASE_PUBLIC_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
       SCHEDULED_CLEANUP_SECRET: ${SCHEDULED_CLEANUP_SECRET:-local-dev-secret}
     volumes:
       - ./supabase/functions:/home/deno/functions:Z

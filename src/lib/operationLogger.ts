@@ -43,9 +43,13 @@ interface UpdateOperationParams {
  */
 export async function startOperation(params: LogOperationParams): Promise<string | null> {
   try {
-    const { data, error } = await supabase
+    // Client-generated id avoids INSERT...RETURNING failing under restrictive SELECT RLS.
+    const id = crypto.randomUUID();
+    const startedAt = new Date().toISOString();
+    const { error } = await supabase
       .from('interview_operation_logs')
       .insert({
+        id,
         operation: params.operation,
         status: 'started',
         interview_id: params.interviewId || null,
@@ -54,19 +58,17 @@ export async function startOperation(params: LogOperationParams): Promise<string
         session_id: params.sessionId || null,
         candidate_email: params.candidateEmail || null,
         user_id: params.userId || null,
-        metadata: params.metadata || {},
-        started_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
+        metadata: { ...(params.metadata || {}), _started_at_client: startedAt },
+        started_at: startedAt,
+      });
 
     if (error) {
       logger.error('[OperationLogger] Failed to start operation:', error);
       return null;
     }
 
-    logger.debug(`[OperationLogger] Started ${params.operation}:`, data.id);
-    return data.id;
+    logger.debug(`[OperationLogger] Started ${params.operation}:`, id);
+    return id;
   } catch (err) {
     logger.error('[OperationLogger] Error starting operation:', err);
     return null;

@@ -13,6 +13,7 @@
  */
 import { test, expect } from '@playwright/test';
 import { signInViaAPI } from './auth-utils';
+import { getAdminClient } from './helpers';
 
 test.describe('Flow: Partner Onboarding', () => {
   test.beforeEach(async ({ page }) => {
@@ -69,18 +70,24 @@ test.describe('Flow: Partner Onboarding', () => {
   });
 
   test('should navigate into organization management', async ({ page }) => {
+    const admin = getAdminClient();
+    const { data: org } = await admin
+      .from('organizations')
+      .select('id')
+      .eq('name', 'E2E Test Organization')
+      .maybeSingle();
+    expect(org?.id).toBeTruthy();
+
     await page.goto('/admin/organizations');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.getByText(/E2E Test Organization/i).first()).toBeVisible({ timeout: 15_000 });
 
-    // Click Manage or View button on the org
-    const manageBtn = page.getByRole('button', { name: /manage|view/i }).first();
-    if (await manageBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await manageBtn.click();
-      await page.waitForLoadState('networkidle');
-
-      // Should show org management page
-      await expect.soft(page.getByText(/E2E Test Organization/i).first()).toBeVisible({ timeout: 15_000 });
-    }
+    // Direct manage URL (Settings control is icon-only in the list UI)
+    await page.goto(`/partner/manage/${org!.id}`);
+    await page.waitForLoadState('domcontentloaded');
+    await expect
+      .soft(page.getByText(/E2E Test Organization|member|interview|setting|organization/i).first())
+      .toBeVisible({ timeout: 15_000 });
   });
 
   test('should show organization management tabs', async ({ page }) => {

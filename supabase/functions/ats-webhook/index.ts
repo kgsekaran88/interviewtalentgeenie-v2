@@ -8,6 +8,15 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ATS deferred — disable webhook processing until re-enabled
+  return new Response(
+    JSON.stringify({
+      error: "ATS integrations are disabled",
+      code: "ATS_DISABLED",
+    }),
+    { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

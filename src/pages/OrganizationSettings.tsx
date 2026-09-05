@@ -12,10 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Save, Loader2, CreditCard, CheckCircle2, AlertCircle } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { useOrganization } from "@/contexts/OrganizationContext";
 
 const OrganizationSettings = () => {
   const navigate = useNavigate();
   const { toast, errorToast, successToast } = useUserFriendlyToast();
+  const { selectedOrgId } = useOrganization();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [organization, setOrganization] = useState<any>(null);
@@ -50,25 +52,16 @@ const OrganizationSettings = () => {
         return;
       }
 
-      // Get user's organization
-      const { data: memberData } = await supabase
-        .from("organization_members" as any)
-        .select("*, organizations(*)")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .maybeSingle();
-
-      // Check if user has partner_admin role
       const { data: userRoles } = await supabase
         .from("user_roles" as any)
         .select("role")
         .eq("user_id", user.id);
 
-      const hasAdminRole = (userRoles as any)?.some((r: any) => 
-        r.role === "platform_admin" || r.role === "partner_admin"
-      );
+      const isPlatformAdmin = (userRoles as any)?.some((r: any) => r.role === "platform_admin");
+      const isPartnerAdmin = (userRoles as any)?.some((r: any) => r.role === "partner_admin");
+      const hasAdminRole = isPlatformAdmin || isPartnerAdmin;
 
-      if (!memberData || !hasAdminRole) {
+      if (!hasAdminRole) {
         toast({
           title: "Access Denied",
           description: "Only partner admins can access organization settings.",
@@ -78,7 +71,48 @@ const OrganizationSettings = () => {
         return;
       }
 
-      const org = (memberData as any).organizations;
+      let org: any = null;
+
+      const { data: memberData } = await supabase
+        .from("organization_members" as any)
+        .select("*, organizations(*)")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (memberData) {
+        org = (memberData as any).organizations;
+      } else if (isPlatformAdmin) {
+        if (selectedOrgId) {
+          const { data: byId } = await supabase
+            .from("organizations")
+            .select("*")
+            .eq("id", selectedOrgId)
+            .maybeSingle();
+          org = byId;
+        }
+        if (!org) {
+          const { data: firstOrg } = await supabase
+            .from("organizations")
+            .select("*")
+            .eq("status", "active")
+            .order("created_at", { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          org = firstOrg;
+        }
+      }
+
+      if (!org) {
+        toast({
+          title: "Access Denied",
+          description: "No organization available for settings.",
+          variant: "destructive",
+        });
+        navigate("/partner/portal");
+        return;
+      }
+
       setOrganization(org);
       setFormData({
         name: org.name || "",
@@ -87,7 +121,6 @@ const OrganizationSettings = () => {
         size: org.size || "",
         country: org.country || "",
         description: org.description || "",
-        // Business verification fields
         legal_business_name: org.legal_business_name || "",
         business_registration_number: org.business_registration_number || "",
         tax_id: org.tax_id || "",
@@ -96,7 +129,6 @@ const OrganizationSettings = () => {
         year_established: org.year_established?.toString() || "",
       });
 
-      // Get subscription
       const { data: subData } = await supabase
         .from("organization_subscriptions" as any)
         .select("*, subscription_plans(*)")

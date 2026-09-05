@@ -1381,18 +1381,31 @@ Return ONLY a valid JSON array with EXACTLY ${questionBankSize} questions:
           let apiUrl;
           let requestBody;
           
-          if (useConfiguredAI && aiConfig?.primaryProvider) {
+          // Prefer native Gemini generateContent. Gateway OpenAI-compat base URLs
+          // (…/v1beta/openai) must not be concatenated with /v1/models/…:generateContent.
+          const providerType = aiConfig?.primaryProvider?.type;
+          const useNativeGemini = !useConfiguredAI
+            || providerType === 'google-gemini'
+            || providerType === 'google'
+            || !aiConfig?.primaryProvider?.baseUrl
+            || String(aiConfig.primaryProvider.baseUrl).includes('/openai');
+
+          if (useConfiguredAI && aiConfig?.primaryProvider && !useNativeGemini) {
             apiKey = aiConfig.primaryProvider.apiKey;
             const model = aiConfig.primaryProvider.model || 'gemini-2.5-flash';
-            apiUrl = `${aiConfig.primaryProvider.baseUrl}/v1/models/${model}:generateContent?key=${apiKey}`;
+            const base = String(aiConfig.primaryProvider.baseUrl).replace(/\/$/, '');
+            apiUrl = `${base}/models/${model}:generateContent?key=${apiKey}`;
             requestBody = {
               contents: [{
                 parts: [{ text: fullPrompt }]
               }]
             };
           } else {
-            apiKey = GOOGLE_GEMINI_API_KEY;
-            apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            apiKey = (useConfiguredAI && aiConfig?.primaryProvider?.apiKey)
+              ? aiConfig.primaryProvider.apiKey
+              : GOOGLE_GEMINI_API_KEY;
+            const model = aiConfig?.primaryProvider?.model || 'gemini-2.5-flash';
+            apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
             requestBody = {
               contents: [{
                 parts: [{ text: fullPrompt }]

@@ -116,7 +116,11 @@ const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
                 `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-proctoring-session`,
                 {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: {
+                    'Content-Type': 'application/json',
+                    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                  },
                   body: JSON.stringify({
                     sessionId: sessionToClose,
                     attemptId,
@@ -227,7 +231,11 @@ const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-proctoring-session`,
             {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
               body: JSON.stringify({
                 sessionId: finalSessionId,
                 attemptId,

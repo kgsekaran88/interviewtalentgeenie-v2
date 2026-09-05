@@ -333,7 +333,13 @@ export const MermaidDiagram = ({
         <div 
           ref={containerRef}
           className={`p-6 overflow-auto bg-background ${expanded ? 'h-[calc(100%-60px)]' : ''}`}
-          dangerouslySetInnerHTML={{ __html: svg }}
+          dangerouslySetInnerHTML={{
+            // Mermaid output is SVG; strip script/event-handler attributes before inject
+            __html: svg
+              .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+              .replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '')
+              .replace(/\shref\s*=\s*(['"])\s*javascript:[^'"]*\1/gi, ''),
+          }}
         />
       )}
       {expanded && (

@@ -89,11 +89,8 @@ test.describe('Billing Contact — Deep', () => {
       await expect(page.getByText(/dashboard|overview/i).first()).toBeVisible({ timeout: 15_000 });
     });
 
-    test('should access partner settings', async ({ page }) => {
-      await page.goto('/partner/settings');
-      await page.waitForLoadState('networkidle');
-
-      await expect(page.getByText(/setting/i).first()).toBeVisible({ timeout: 15_000 });
+    test('should be denied partner settings (partner/platform admin only)', async ({ page }) => {
+      await expectAccessDenied(page, '/partner/settings');
     });
 
     test('should access partner analytics', async ({ page }) => {

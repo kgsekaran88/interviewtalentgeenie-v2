@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 import { invokeFunction } from '@/lib/supabaseFunctions';
 import { detectBrowserCapabilities, BrowserCapabilities } from '@/lib/recordingCapabilities';
 import { checkNetworkAvailable } from '@/hooks/useNetworkStatus';
+import { toBrowserStorageUrl, storageUploadHeaders } from '@/lib/publicStorageUrl';
 
 export interface RecordingValidationResult {
   success: boolean;
@@ -186,12 +187,10 @@ export function useRecordingValidator(options: UseRecordingValidatorOptions = {}
       }
 
       // Test the upload with a small payload
-      const uploadResponse = await fetch(data.signedUrl, {
+      const uploadResponse = await fetch(toBrowserStorageUrl(data.signedUrl), {
         method: 'PUT',
         body: testPayload,
-        headers: {
-          'Content-Type': 'application/octet-stream'
-        }
+        headers: storageUploadHeaders('application/octet-stream'),
       });
 
       if (!uploadResponse.ok) {

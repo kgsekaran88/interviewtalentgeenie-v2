@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { toPublicUrl } from "../_shared/publicUrl.ts";
 
 /**
  * Get Proctoring Upload URL
@@ -196,7 +197,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        signedUrl: signedUrlData.signedUrl,
+        signedUrl: toPublicUrl(signedUrlData.signedUrl),
         token: signedUrlData.token,
         filePath,
         expiresIn: 3600, // 1 hour

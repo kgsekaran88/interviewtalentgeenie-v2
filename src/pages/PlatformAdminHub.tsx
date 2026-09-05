@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { isFeatureEnabled, type FeatureFlag } from '@/lib/featureFlags';
 
 interface AdminSection {
   id: string;
@@ -32,6 +33,7 @@ interface AdminSection {
   icon: any;
   path: string;
   category: string;
+  featureFlag?: FeatureFlag;
 }
 
 interface AdminCategory {
@@ -55,8 +57,8 @@ const ADMIN_CATEGORIES: AdminCategory[] = [
     description: 'Revenue, pricing, and payment management',
     sections: [
       { id: 'plan-management', title: 'Subscription Plans', description: 'Configure interview limits & pricing', icon: CreditCard, path: '/admin/plan-management', category: 'billing' },
-      { id: 'learning-plan-management', title: 'Learning Plans', description: 'Configure learning limits & pricing', icon: CreditCard, path: '/admin/learning-plan-management', category: 'billing' },
-      { id: 'payment-gateways', title: 'Payment Gateways', description: 'Configure Stripe, Razorpay & more', icon: CreditCard, path: '/admin/payment-gateways', category: 'billing' },
+      { id: 'learning-plan-management', title: 'Learning Plans', description: 'Configure learning limits & pricing', icon: CreditCard, path: '/admin/learning-plan-management', category: 'billing', featureFlag: 'learning' },
+      { id: 'payment-gateways', title: 'Payment Gateways', description: 'Configure Stripe, Razorpay & more', icon: CreditCard, path: '/admin/payment-gateways', category: 'billing', featureFlag: 'onlinePayments' },
       { id: 'promotions', title: 'Promotions', description: 'Coupon codes, discounts & offers', icon: Tag, path: '/admin/promotions', category: 'billing' },
       { id: 'billing', title: 'Billing Management', description: 'Invoices and revenue tracking', icon: CreditCard, path: '/admin/billing', category: 'billing' },
       { id: 'cost-monitoring', title: 'Cost Monitoring', description: 'Track AI, storage & usage costs', icon: TrendingUp, path: '/admin/cost-monitoring', category: 'billing' },
@@ -72,7 +74,7 @@ const ADMIN_CATEGORIES: AdminCategory[] = [
       { id: 'preinterview-logs', title: 'Pre-Interview Check Logs', description: 'Debug candidate setup issues', icon: AlertTriangle, path: '/admin/preinterview-logs', category: 'monitoring' },
       { id: 'operation-logs', title: 'Interview Operation Logs', description: 'Track submissions & evaluations', icon: Activity, path: '/admin/operation-logs', category: 'monitoring' },
       { id: 'scheduled-jobs-monitor', title: 'Scheduled Jobs', description: 'Cron job status & manual triggers', icon: Timer, path: '/admin/scheduled-jobs', category: 'monitoring' },
-      { id: 'analytics', title: 'Platform Analytics', description: 'Platform-wide insights & metrics', icon: TrendingUp, path: '/admin/analytics', category: 'monitoring' },
+      { id: 'analytics', title: 'Platform Analytics', description: 'Platform-wide insights & metrics', icon: TrendingUp, path: '/admin/analytics', category: 'monitoring', featureFlag: 'advancedAnalytics' },
     ]
   },
   {
@@ -86,10 +88,10 @@ const ADMIN_CATEGORIES: AdminCategory[] = [
     name: 'Learning & Certification',
     description: 'Training, certifications, and learning content',
     sections: [
-      { id: 'learning-management', title: 'Learning Management', description: 'Manage learning content', icon: BookOpen, path: '/admin/learning-management', category: 'learning' },
-      { id: 'training', title: 'Training Plans', description: 'Create & assign training plans', icon: Users, path: '/admin/training', category: 'learning' },
-      { id: 'certification-admin', title: 'Certification Admin', description: 'Manage certification topics', icon: Award, path: '/admin/certification-admin', category: 'learning' },
-      { id: 'certification-analytics', title: 'Certification Analytics', description: 'Certification metrics & insights', icon: TrendingUp, path: '/admin/certification-analytics', category: 'learning' },
+      { id: 'learning-management', title: 'Learning Management', description: 'Manage learning content', icon: BookOpen, path: '/admin/learning-management', category: 'learning', featureFlag: 'learning' },
+      { id: 'training', title: 'Training Plans', description: 'Create & assign training plans', icon: Users, path: '/admin/training', category: 'learning', featureFlag: 'learning' },
+      { id: 'certification-admin', title: 'Certification Admin', description: 'Manage certification topics', icon: Award, path: '/admin/certification-admin', category: 'learning', featureFlag: 'certifications' },
+      { id: 'certification-analytics', title: 'Certification Analytics', description: 'Certification metrics & insights', icon: TrendingUp, path: '/admin/certification-analytics', category: 'learning', featureFlag: 'certifications' },
     ]
   },
   {
@@ -97,7 +99,7 @@ const ADMIN_CATEGORIES: AdminCategory[] = [
     description: 'AI configuration and proctoring settings',
     sections: [
       { id: 'ai-config', title: 'AI Configuration', description: 'Configure AI models & features', icon: Brain, path: '/admin/ai-configuration', category: 'ai' },
-      { id: 'chatbot', title: 'Chatbot Management', description: 'AI assistant configuration', icon: Bot, path: '/admin/chatbot-management', category: 'ai' },
+      { id: 'chatbot', title: 'Chatbot Management', description: 'AI assistant configuration', icon: Bot, path: '/admin/chatbot-management', category: 'ai', featureFlag: 'chatbot' },
       { id: 'proctoring', title: 'Proctoring Settings', description: 'Configure interview monitoring', icon: Shield, path: '/admin/proctoring-settings', category: 'ai' },
     ]
   },
@@ -106,12 +108,12 @@ const ADMIN_CATEGORIES: AdminCategory[] = [
     description: 'Deployment, testing, and platform documentation',
     sections: [
       { id: 'scheduled-jobs', title: 'Scheduled Jobs', description: 'Manage cron jobs & automated tasks', icon: Timer, path: '/admin/scheduled-jobs', category: 'devops' },
-      { id: 'testing-hub', title: 'Testing Hub', description: 'Automated testing & QA', icon: FileCheck, path: '/admin/testing-hub', category: 'devops' },
-      { id: 'deploy', title: 'Deployment Configurator', description: 'Deploy self-hosted copy', icon: Cloud, path: '/admin/deploy', category: 'devops' },
-      { id: 'deploy-dashboard', title: 'Deployment Dashboard', description: 'Live infrastructure status', icon: Activity, path: '/admin/deploy-dashboard', category: 'devops' },
-      { id: 'deploy-history', title: 'Deployment History', description: 'Track and rollback deployments', icon: History, path: '/admin/deploy-history', category: 'devops' },
+      { id: 'testing-hub', title: 'Testing Hub', description: 'Automated testing & QA', icon: FileCheck, path: '/admin/testing-hub', category: 'devops', featureFlag: 'internalQa' },
+      { id: 'deploy', title: 'Deployment Configurator', description: 'Deploy self-hosted copy', icon: Cloud, path: '/admin/deploy', category: 'devops', featureFlag: 'selfHostDeploy' },
+      { id: 'deploy-dashboard', title: 'Deployment Dashboard', description: 'Live infrastructure status', icon: Activity, path: '/admin/deploy-dashboard', category: 'devops', featureFlag: 'selfHostDeploy' },
+      { id: 'deploy-history', title: 'Deployment History', description: 'Track and rollback deployments', icon: History, path: '/admin/deploy-history', category: 'devops', featureFlag: 'selfHostDeploy' },
       { id: 'documentation', title: 'Documentation', description: 'Platform documentation', icon: BookOpen, path: '/admin/documentation', category: 'devops' },
-      { id: 'architecture', title: 'Architecture Diagrams', description: 'System architecture visualization', icon: Network, path: '/admin/architecture', category: 'devops' },
+      { id: 'architecture', title: 'Architecture Diagrams', description: 'System architecture visualization', icon: Network, path: '/admin/architecture', category: 'devops', featureFlag: 'internalQa' },
       { id: 'settings', title: 'Platform Settings', description: 'General platform configuration', icon: Settings, path: '/admin/settings', category: 'devops' },
     ]
   }
@@ -382,7 +384,13 @@ export default function PlatformAdminHub() {
 
       {/* 3-Tier Platform Management Structure */}
       <div className="space-y-6 sm:space-y-8">
-        {ADMIN_CATEGORIES.map((category) => (
+        {ADMIN_CATEGORIES.map((category) => {
+          const visibleSections = category.sections.filter(
+            (s) => !s.featureFlag || isFeatureEnabled(s.featureFlag)
+          );
+          if (visibleSections.length === 0) return null;
+
+          return (
           <div key={category.name}>
             <div className="mb-4 sm:mb-6">
               <h2 className="text-lg sm:text-xl md:text-2xl font-bold mb-1 sm:mb-2">{category.name}</h2>
@@ -466,13 +474,13 @@ export default function PlatformAdminHub() {
             )}
             
             <div className={`grid gap-3 sm:gap-4 ${
-              category.sections.length <= 3 
+              visibleSections.length <= 3 
                 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3' 
-                : category.sections.length <= 4 
+                : visibleSections.length <= 4 
                   ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
                   : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
             }`}>
-              {category.sections.map(section => {
+              {visibleSections.map(section => {
                 const Icon = section.icon;
                 return (
                   <Card
@@ -496,7 +504,8 @@ export default function PlatformAdminHub() {
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Dialogs */}

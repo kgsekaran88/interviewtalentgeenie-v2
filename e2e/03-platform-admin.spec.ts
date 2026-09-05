@@ -109,10 +109,9 @@ test.describe('Platform Admin', () => {
 
     test('should display analytics dashboard', async ({ page }) => {
       await page.goto('/admin/analytics');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
-      const heading = page.getByText(/analytics|dashboard|overview/i).first();
-      await expect(heading).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole('heading', { name: /Advanced Analytics/i })).toBeVisible({ timeout: 15_000 });
       expect(page.url()).not.toContain('/auth');
     });
   });

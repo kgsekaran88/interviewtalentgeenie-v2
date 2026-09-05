@@ -17,6 +17,7 @@ import {
   Clock
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 import {
   Sidebar,
   SidebarContent,
@@ -173,7 +174,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Learning Section */}
-        {user && (
+        {user && isFeatureEnabled('learning') && (
           <SidebarGroup>
             <Collapsible defaultOpen className="group/collapsible">
               <SidebarGroupLabel asChild>

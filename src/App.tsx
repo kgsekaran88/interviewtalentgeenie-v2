@@ -58,6 +58,7 @@ import ResetPasswordConfirm from "./pages/ResetPasswordConfirm";
 import Pricing from "./pages/Pricing";
 import LearningPricing from "./pages/LearningPricing";
 import PartnerPortal from "./pages/PartnerPortal";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 
 import OrganizationManagement from "./pages/OrganizationManagement";
 import PartnerManageIndexRedirect from "./pages/PartnerManageIndexRedirect";
@@ -147,9 +148,19 @@ const App = () => (
             </ErrorBoundary>
           } />
           <Route path="/interview-complete/:attemptId" element={<InterviewComplete />} />
-          <Route path="/take-learning-assessment/:id" element={<TakeLearningAssessment />} />
-          <Route path="/learning-progress/:id" element={<LearningProgress />} />
-          <Route path="/learning-feedback/:attemptId" element={<LearningFeedback />} />
+          {isFeatureEnabled('learning') ? (
+            <>
+              <Route path="/take-learning-assessment/:id" element={<TakeLearningAssessment />} />
+              <Route path="/learning-progress/:id" element={<LearningProgress />} />
+              <Route path="/learning-feedback/:attemptId" element={<LearningFeedback />} />
+            </>
+          ) : (
+            <>
+              <Route path="/take-learning-assessment/:id" element={<Navigate to="/" replace />} />
+              <Route path="/learning-progress/:id" element={<Navigate to="/" replace />} />
+              <Route path="/learning-feedback/:attemptId" element={<Navigate to="/" replace />} />
+            </>
+          )}
           <Route path="/partner/payment-setup" element={
             <ProtectedRoute requiredRoles={['platform_admin', 'partner_admin']}>
               <PaymentSetup />
@@ -197,27 +208,33 @@ const App = () => (
             </ProtectedRoute>
           } />
           
-          {/* Learning - Public Access */}
-          <Route path="/learning" element={<Certifications />} />
-          <Route path="/learning-pricing" element={<LearningPricing />} />
+          {/* Learning - gated by feature flag */}
+          <Route path="/learning" element={isFeatureEnabled('learning') || isFeatureEnabled('certifications') ? <Certifications /> : <Navigate to="/" replace />} />
+          <Route path="/learning-pricing" element={isFeatureEnabled('learning') ? <LearningPricing /> : <Navigate to="/" replace />} />
           <Route path="/learning/:topicId/configure" element={
-            <ProtectedRoute>
-              <PracticeAssessmentConfiguration />
-            </ProtectedRoute>
+            isFeatureEnabled('learning') ? (
+              <ProtectedRoute>
+                <PracticeAssessmentConfiguration />
+              </ProtectedRoute>
+            ) : <Navigate to="/" replace />
           } />
-          <Route path="/certifications" element={<Certifications />} />
-          <Route path="/verify-certificate" element={<VerifyCertificate />} />
+          <Route path="/certifications" element={isFeatureEnabled('certifications') ? <Certifications /> : <Navigate to="/" replace />} />
+          <Route path="/verify-certificate" element={isFeatureEnabled('certifications') ? <VerifyCertificate /> : <Navigate to="/" replace />} />
           
           {/* Special Learning Routes - Accessed via links */}
           <Route path="/take-certification/:assessmentId" element={
-            <ProtectedRoute>
-              <TakeCertification />
-            </ProtectedRoute>
+            isFeatureEnabled('certifications') ? (
+              <ProtectedRoute>
+                <TakeCertification />
+              </ProtectedRoute>
+            ) : <Navigate to="/" replace />
           } />
           <Route path="/certification-result/:attemptId" element={
-            <ProtectedRoute>
-              <CertificationResult />
-            </ProtectedRoute>
+            isFeatureEnabled('certifications') ? (
+              <ProtectedRoute>
+                <CertificationResult />
+              </ProtectedRoute>
+            ) : <Navigate to="/" replace />
           } />
           {/* Redirect old unified dashboard to partner dashboard */}
           <Route path="/unified-dashboard" element={
@@ -330,26 +347,34 @@ const App = () => (
           {/* Backward Compatibility: Redirect old /interviewer/* URLs to partner recruiting */}
           <Route path="/interviewer/*" element={<Navigate to="/partner/recruiting/interviews" replace />} />
           
-          {/* Learning Hub - Accessible to all authenticated users */}
+          {/* Learning Hub - gated */}
           <Route path="/learning-dashboard" element={
-            <ProtectedRoute>
-              <LearningDashboard />
-            </ProtectedRoute>
+            isFeatureEnabled('learning') ? (
+              <ProtectedRoute>
+                <LearningDashboard />
+              </ProtectedRoute>
+            ) : <Navigate to="/profile" replace />
           } />
           <Route path="/learning-history" element={
-            <ProtectedRoute>
-              <LearningHistory />
-            </ProtectedRoute>
+            isFeatureEnabled('learning') ? (
+              <ProtectedRoute>
+                <LearningHistory />
+              </ProtectedRoute>
+            ) : <Navigate to="/profile" replace />
           } />
           <Route path="/my-learning-plan" element={
-            <ProtectedRoute>
-              <MyLearningPlan />
-            </ProtectedRoute>
+            isFeatureEnabled('learning') ? (
+              <ProtectedRoute>
+                <MyLearningPlan />
+              </ProtectedRoute>
+            ) : <Navigate to="/profile" replace />
           } />
           <Route path="/my-certificates" element={
-            <ProtectedRoute>
-              <MyCertificates />
-            </ProtectedRoute>
+            isFeatureEnabled('certifications') ? (
+              <ProtectedRoute>
+                <MyCertificates />
+              </ProtectedRoute>
+            ) : <Navigate to="/profile" replace />
           } />
           <Route path="/my-applications" element={
             <ProtectedRoute>

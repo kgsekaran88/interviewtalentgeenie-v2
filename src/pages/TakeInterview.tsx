@@ -1344,8 +1344,8 @@ const TakeInterview = () => {
     };
   }, [started, videoStream, autoQualityEnabled, videoQuality, networkQuality, videoPerformance]);
 
-  const detectCodeLanguage = (questionText: string, topic: string): "sql" | "python" | "javascript" | "java" | "typescript" | "go" => {
-    const text = (questionText + " " + topic).toLowerCase();
+  const detectCodeLanguage = (questionText: string, topic?: string | null): "sql" | "python" | "javascript" | "java" | "typescript" | "go" => {
+    const text = (questionText + " " + (topic || "")).toLowerCase();
     
     // Priority 1: Check for explicit programming language mentions first
     // Java-specific (before javascript check) - check for Java frameworks/keywords
@@ -1757,16 +1757,25 @@ const TakeInterview = () => {
     }
   }
 
-  // For non-proctored: If no current question (still loading or error), show appropriate screen
-  if (!currentQuestion && started && !showProctoringSetup) {
-    return questionLoadError ? renderErrorScreen() : renderLoadingScreen();
+  // Non-proctored (and post-setup proctored): never build interview JSX without a question.
+  // Race: candidateInfo is set before `started` flips true — accessing currentQuestion.topic
+  // while defining interviewContent would crash the ErrorBoundary.
+  if (!currentQuestion) {
+    if (candidateInfo) {
+      return questionLoadError ? renderErrorScreen() : renderLoadingScreen();
+    }
+    // Fall through only for the pre-start form path (handled above via !candidateInfo)
   }
 
   // At this point, if we're going to render interviewContent, currentQuestion must exist
   // If it doesn't exist and we're not in a started state, we'll render the candidate info form
   // which doesn't need currentQuestion
 
-  // Main interview content - only rendered when currentQuestion exists or not started yet
+  // Main interview content - only rendered when currentQuestion exists
+  if (!currentQuestion) {
+    return renderLoadingScreen();
+  }
+
   const interviewContent = (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
       {/* Time's Up Overlay - blocks all interaction when time expires */}

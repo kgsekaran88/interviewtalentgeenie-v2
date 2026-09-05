@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Brain, FileCheck, GraduationCap, User, LogOut, Settings, Users, Home, Building2, DollarSign, TestTube, ClipboardCheck, Eye, Award } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useUserRoles } from "@/hooks/useUserRoles";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,12 +82,17 @@ export const AppNavigation = () => {
     }
     
     // Default for guest users or no specific role
-    return [
+    const guestItems = [
       { name: 'Dashboard', path: '/dashboard', icon: Home },
       { name: 'My Applications', path: '/my-applications', icon: ClipboardCheck },
-      { name: 'Learning', path: '/learning', icon: GraduationCap },
-      { name: 'Certificates', path: '/my-certificates', icon: Award },
     ];
+    if (isFeatureEnabled('learning')) {
+      guestItems.push({ name: 'Learning', path: '/learning', icon: GraduationCap });
+    }
+    if (isFeatureEnabled('certifications')) {
+      guestItems.push({ name: 'Certificates', path: '/my-certificates', icon: Award });
+    }
+    return guestItems;
   };
 
   const navigationItems = getNavigationItems();

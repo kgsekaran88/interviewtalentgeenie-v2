@@ -6,8 +6,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // ─── Environment ─────────────────────────────────────────────────────────────
-export const BASE_URL      = 'http://localhost:5174';
-export const API_URL       = 'http://localhost:8000';
+export const BASE_URL      = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8084';
+export const API_URL       = process.env.PLAYWRIGHT_API_URL || 'http://localhost:8000';
 export const ANON_KEY      = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogImFub24iLCAiaXNzIjogInN1cGFiYXNlIiwgImlhdCI6IDE3NzE0MDQyMzcsICJleHAiOiAyMDg2NzY0MjM3fQ.0T9mbkTwe7N_N8bUT49a4-Jg_wP0VtyiSQuDB418m5o';
 export const SERVICE_KEY   = 'eyJhbGciOiAiSFMyNTYiLCAidHlwIjogIkpXVCJ9.eyJyb2xlIjogInNlcnZpY2Vfcm9sZSIsICJpc3MiOiAic3VwYWJhc2UiLCAiaWF0IjogMTc3MTQwNDIzNywgImV4cCI6IDIwODY3NjQyMzd9.6_nqKXwhutXVE2LtPo26yjPILFBbTcv1LBzen3vaf2Y';
 

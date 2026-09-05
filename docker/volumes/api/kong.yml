@@ -48,6 +48,8 @@ services:
         config:
           origins:
             - ${FRONTEND_URL}
+            - http://localhost:8084
+            - http://127.0.0.1:8084
           credentials: true
           max_age: 3600
       - name: key-auth
@@ -75,6 +77,8 @@ services:
         config:
           origins:
             - ${FRONTEND_URL}
+            - http://localhost:8084
+            - http://127.0.0.1:8084
           credentials: true
           max_age: 3600
       - name: key-auth
@@ -102,6 +106,8 @@ services:
         config:
           origins:
             - ${FRONTEND_URL}
+            - http://localhost:8084
+            - http://127.0.0.1:8084
           credentials: true
           max_age: 3600
       - name: key-auth
@@ -129,6 +135,8 @@ services:
         config:
           origins:
             - ${FRONTEND_URL}
+            - http://localhost:8084
+            - http://127.0.0.1:8084
           credentials: true
           max_age: 3600
       - name: key-auth
@@ -156,6 +164,8 @@ services:
         config:
           origins:
             - ${FRONTEND_URL}
+            - http://localhost:8084
+            - http://127.0.0.1:8084
           credentials: true
           max_age: 3600
       - name: key-auth

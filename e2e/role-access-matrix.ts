@@ -35,8 +35,8 @@ const ALL_ROLES: TestUserKey[] = ['platformAdmin', 'partnerAdmin', 'hrRecruiter'
 const ORG_ROLES: TestUserKey[] = ['platformAdmin', 'partnerAdmin', 'hrRecruiter', 'techSpoc', 'billingContact'];
 const RECRUITING_ROLES: TestUserKey[] = ['platformAdmin', 'partnerAdmin', 'hrRecruiter', 'techSpoc'];
 const PARTNER_ROLES: TestUserKey[] = ['platformAdmin', 'partnerAdmin', 'hrRecruiter', 'techSpoc', 'billingContact'];
-// Roles that can access /partner/settings (require org membership + admin role)
-const PARTNER_ADMIN_ROLES: TestUserKey[] = ['partnerAdmin'];
+// Roles that can access /partner/settings (org admin + platform god-mode)
+const PARTNER_ADMIN_ROLES: TestUserKey[] = ['platformAdmin', 'partnerAdmin'];
 // Roles that can access /partner/users (platform_admin OR partner_admin — role check only)
 const USER_MGMT_ROLES: TestUserKey[] = ['platformAdmin', 'partnerAdmin'];
 // Roles that can access /partner/billing (platform_admin, partner_admin, billing_contact — role check only)
@@ -78,7 +78,7 @@ export const ADMIN_ROUTES: RouteAccessEntry[] = [
   { path: '/admin/user-management', name: 'User Management', group: 'admin', allowedRoles: ADMIN_ONLY, deniedRoles: except(ALL_ROLES, 'platformAdmin'), expectHeading: /user|management/i },
   { path: '/admin/role-assignment', name: 'Role Assignment', group: 'admin', allowedRoles: ADMIN_ONLY, deniedRoles: except(ALL_ROLES, 'platformAdmin'), expectHeading: /role|assign/i },
   { path: '/admin/role-permissions', name: 'Role Permissions', group: 'admin', allowedRoles: ADMIN_ONLY, deniedRoles: except(ALL_ROLES, 'platformAdmin'), expectHeading: /permission|role/i },
-  { path: '/admin/analytics', name: 'Analytics', group: 'admin', allowedRoles: ADMIN_ONLY, deniedRoles: except(ALL_ROLES, 'platformAdmin'), expectHeading: /analytics|dashboard|report/i },
+  { path: '/admin/analytics', name: 'Analytics', group: 'admin', allowedRoles: ADMIN_ONLY, deniedRoles: except(ALL_ROLES, 'platformAdmin'), expectHeading: /advanced analytics|analytics|dashboard|report/i },
   { path: '/admin/billing', name: 'Admin Billing', group: 'admin', allowedRoles: ADMIN_ONLY, deniedRoles: except(ALL_ROLES, 'platformAdmin'), expectHeading: /billing|subscription|plan/i },
   { path: '/admin/plan-management', name: 'Plan Management', group: 'admin', allowedRoles: ADMIN_ONLY, deniedRoles: except(ALL_ROLES, 'platformAdmin'), expectHeading: /plan|subscription/i },
   { path: '/admin/promotions', name: 'Promotions', group: 'admin', allowedRoles: ADMIN_ONLY, deniedRoles: except(ALL_ROLES, 'platformAdmin'), expectHeading: /promotion|discount|coupon/i },

@@ -35,6 +35,7 @@ import {
   RotateCcw
 } from "lucide-react";
 import { formatRoleName, getRoleColor } from "@/lib/roleFormatters";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 
 const PartnerPortal = () => {
   const navigate = useNavigate();
@@ -414,7 +415,7 @@ const PartnerPortal = () => {
     },
     learning_training: {
       id: 'learning_training',
-      visible: true,
+      visible: isFeatureEnabled('learning'),
       title: 'Learning & Training',
       description: 'Training topics & assessments',
       icon: BarChart3,

@@ -226,6 +226,7 @@ CREATE TABLE IF NOT EXISTS public.organization_members (
 ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
 
 -- organization_subscriptions
+-- Usage counters are required by increment_interviews_used() / update_subscription_interview_usage().
 CREATE TABLE IF NOT EXISTS public.organization_subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
@@ -234,6 +235,10 @@ CREATE TABLE IF NOT EXISTS public.organization_subscriptions (
   current_period_start TIMESTAMPTZ,
   current_period_end TIMESTAMPTZ,
   stripe_subscription_id TEXT,
+  billing_cycle TEXT DEFAULT 'monthly',
+  interviews_used INTEGER DEFAULT 0,
+  ai_usage_used INTEGER DEFAULT 0,
+  seats_used INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

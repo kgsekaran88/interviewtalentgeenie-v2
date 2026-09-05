@@ -75,9 +75,9 @@ test.describe('Authentication', () => {
     test('should sign in via API and access protected pages', async ({ page }) => {
       await signInViaAPI(page, 'platformAdmin');
 
-      // Navigate to admin hub
+      // Navigate to admin hub (avoid networkidle — Realtime keeps connections open)
       await page.goto('/admin');
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
 
       // Should see Platform Admin Hub (not redirected to /auth)
       await expect(page.getByRole('heading', { name: 'Platform Admin Hub' })).toBeVisible({ timeout: 15_000 });

@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Playwright E2E Test Configuration for InterviewTalentGeenie
  * 
  * Self-hosted stack:
- *   Frontend:  http://localhost:5174  (Vite dev server)
+ *   Frontend:  http://localhost:8084  (Vite dev server)
  *   API:       http://localhost:8000  (Kong → Supabase services)
  *   Auth:      http://localhost:8000/auth/v1
  *   Studio:    http://localhost:3001
@@ -24,12 +24,20 @@ export default defineConfig({
     timeout: 15_000,             // 15s for assertions
   },
   use: {
-    baseURL: 'http://localhost:5174',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8084',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     actionTimeout: 10_000,
   },
+  // Deferred product surfaces (feature flags off / out of scope for launch hardening)
+  testIgnore: [
+    '**/05-learning-hub.spec.ts',
+    '**/flow-05-training-plan-mgmt.spec.ts',
+    '**/flow-06-learning-plan-user.spec.ts',
+    '**/17-guest-deep.spec.ts',
+    '**/flow-18-candidate-journey.spec.ts',
+  ],
   // Global setup runs before all tests
   globalSetup: './e2e/global.setup.ts',
   projects: [
@@ -40,9 +48,9 @@ export default defineConfig({
   ],
   // Auto-start the frontend if not running
   webServer: {
-    command: 'npm run dev -- --port 5174',
-    url: 'http://localhost:5174',
+    command: 'npx vite --host 0.0.0.0 --port 8084 --strictPort',
+    url: 'http://localhost:8084',
     reuseExistingServer: true,
-    timeout: 30_000,
+    timeout: 60_000,
   },
 });

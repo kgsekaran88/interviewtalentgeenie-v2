@@ -9,6 +9,19 @@ import { EnhancedVoiceAnalyzer, EnhancedVoiceResult, createEnhancedVoiceAnalyzer
 import { queueRecordingUpload, triggerBackgroundUpload, registerUploadServiceWorker } from '@/lib/backgroundUploader';
 import { logger } from '@/lib/logger';
 import { useChunkUploader, ChunkUploadProgress } from '@/hooks/useChunkUploader';
+import { toBrowserStorageUrl, storageUploadHeaders } from '@/lib/publicStorageUrl';
+
+/** Kong requires apikey on Edge Function calls (candidates often have no user JWT). */
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+function edgeFunctionHeaders(json = true): HeadersInit {
+  const headers: Record<string, string> = {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+  };
+  if (json) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+
 interface ProctoringViolation {
   timestamp: string;
   type: 'multiple_persons' | 'multiple_voices' | 'tab_switch' | 'look_away' | 'copy_attempt' | 'eye_movement' | 'liveness_fail' | 'person_swap' | 'silence_anomaly' | 'phone_detected' | 'prohibited_object' | 'multiple_monitors' | 'print_screen' | 'virtual_machine' | 'suspicious_typing' | 'audio_playback' | 'screen_share_stopped';
@@ -225,6 +238,7 @@ export const useProctoring = (
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-proctoring-screenshot`,
         {
           method: 'POST',
+          headers: edgeFunctionHeaders(false),
           body: formData,
         }
       );
@@ -360,7 +374,8 @@ export const useProctoring = (
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-proctoring-screenshot`,
       {
         method: 'POST',
-        body: formData,
+          headers: edgeFunctionHeaders(false),
+          body: formData,
       }
     );
     
@@ -449,7 +464,7 @@ export const useProctoring = (
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/init-proctoring-session`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: edgeFunctionHeaders(true),
             body: JSON.stringify({
               attemptId: effectiveId,
               attemptType,
@@ -2068,7 +2083,8 @@ export const useProctoring = (
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(`${supabaseUrl}/functions/v1/upload-proctoring-screenshot`, {
         method: 'POST',
-        body: formData,
+          headers: edgeFunctionHeaders(false),
+          body: formData,
       });
 
       if (!response.ok) {
@@ -2243,6 +2259,7 @@ export const useProctoring = (
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/upload-proctoring-screenshot`,
         {
           method: 'POST',
+          headers: edgeFunctionHeaders(false),
           body: formData,
         }
       );
@@ -2361,7 +2378,7 @@ export const useProctoring = (
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/log-proctoring-violation`,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: edgeFunctionHeaders(true),
             body: JSON.stringify({
               sessionId: currentSessionId,
               attemptId,
@@ -2886,7 +2903,7 @@ export const useProctoring = (
                     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-chunk-upload-url`,
                     {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
+                      headers: edgeFunctionHeaders(true),
                       body: JSON.stringify({
                         sessionId: sessionIdToClose,
                         attemptId,
@@ -2899,10 +2916,10 @@ export const useProctoring = (
                   
                   if (signedUrlResponse.ok) {
                     const { signedUrl } = await signedUrlResponse.json();
-                    const uploadResponse = await fetch(signedUrl, {
+                    const uploadResponse = await fetch(toBrowserStorageUrl(signedUrl), {
                       method: 'PUT',
                       body: blob,
-                      headers: { 'Content-Type': 'video/webm' },
+                      headers: storageUploadHeaders('video/webm'),
                     });
                     if (uploadResponse.ok) {
                       logger.proctoring(`[ChunkUpload] Recovered video chunk #${i}`);
@@ -2928,7 +2945,7 @@ export const useProctoring = (
                     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-chunk-upload-url`,
                     {
                       method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
+                      headers: edgeFunctionHeaders(true),
                       body: JSON.stringify({
                         sessionId: sessionIdToClose,
                         attemptId,
@@ -2941,10 +2958,10 @@ export const useProctoring = (
                   
                   if (signedUrlResponse.ok) {
                     const { signedUrl } = await signedUrlResponse.json();
-                    const uploadResponse = await fetch(signedUrl, {
+                    const uploadResponse = await fetch(toBrowserStorageUrl(signedUrl), {
                       method: 'PUT',
                       body: blob,
-                      headers: { 'Content-Type': 'video/webm' },
+                      headers: storageUploadHeaders('video/webm'),
                     });
                     if (uploadResponse.ok) {
                       logger.proctoring(`[ChunkUpload] Recovered screen chunk #${i}`);
@@ -2982,7 +2999,7 @@ export const useProctoring = (
                 `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/merge-proctoring-chunks`,
                 {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: edgeFunctionHeaders(true),
                   body: JSON.stringify({
                     sessionId: sessionIdToClose,
                     recordingType: 'video',
@@ -3011,7 +3028,7 @@ export const useProctoring = (
                 `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/merge-proctoring-chunks`,
                 {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: edgeFunctionHeaders(true),
                   body: JSON.stringify({
                     sessionId: sessionIdToClose,
                     recordingType: 'screen',

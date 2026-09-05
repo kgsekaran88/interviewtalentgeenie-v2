@@ -847,6 +847,7 @@ BEGIN
 END;
 $function$;
 
+DROP FUNCTION IF EXISTS public.create_interview_attempt_with_invitation(uuid, text, text);
 CREATE OR REPLACE FUNCTION public.create_interview_attempt_with_invitation(p_invitation_id uuid, p_candidate_name text, p_candidate_email text)
  RETURNS TABLE(attempt_id uuid, session_token text, success boolean, error_message text)
  LANGUAGE plpgsql
@@ -941,8 +942,21 @@ BEGIN
 END;
 $function$;
 
+DROP FUNCTION IF EXISTS public.get_questions_for_attempt(uuid);
 CREATE OR REPLACE FUNCTION public.get_questions_for_attempt(p_attempt_id uuid)
- RETURNS TABLE(id uuid, interview_id uuid, question_text text, topic text, difficulty text, question_type text, options jsonb, order_index integer, created_at timestamp with time zone)
+ RETURNS TABLE(
+   id uuid,
+   interview_id uuid,
+   question_text text,
+   topic text,
+   difficulty text,
+   question_type text,
+   options jsonb,
+   order_index integer,
+   created_at timestamp with time zone,
+   coding_schema jsonb,
+   allowed_languages text[]
+ )
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
@@ -966,7 +980,7 @@ BEGIN
     RAISE EXCEPTION 'Attempt not found';
   END IF;
 
-  IF v_attempt_status != 'in_progress' AND v_attempt_status != 'completed' THEN
+  IF v_attempt_status NOT IN ('in_progress', 'completed', 'submitted', 'evaluated', 'pending_upload') THEN
     RAISE EXCEPTION 'Invalid attempt status';
   END IF;
 
@@ -1001,7 +1015,9 @@ BEGIN
       q.question_type,
       q.options,
       aq.display_order as order_index,
-      q.created_at
+      q.created_at,
+      q.coding_schema,
+      q.allowed_languages
     FROM public.questions q
     INNER JOIN public.attempt_questions aq ON q.id = aq.question_id
     WHERE aq.attempt_id = p_attempt_id
@@ -1032,6 +1048,7 @@ BEGIN
         ) as display_order
       FROM public.questions q
       WHERE q.interview_id = v_interview_id
+        AND q.deleted_at IS NULL
       ORDER BY RANDOM()
       LIMIT v_question_count
     ),
@@ -1067,7 +1084,9 @@ BEGIN
       q.question_type,
       q.options,
       aq.display_order as order_index,
-      q.created_at
+      q.created_at,
+      q.coding_schema,
+      q.allowed_languages
     FROM public.questions q
     INNER JOIN public.attempt_questions aq ON q.id = aq.question_id
     WHERE aq.attempt_id = p_attempt_id
@@ -1083,6 +1102,8 @@ BEGIN
   END IF;
 END;
 $function$;
+
+GRANT EXECUTE ON FUNCTION public.get_questions_for_attempt(uuid) TO anon, authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.get_random_questions_for_attempt(interview_uuid uuid, attempt_uuid uuid, num_questions integer)
  RETURNS TABLE(id uuid, interview_id uuid, question_text text, topic text, difficulty text, options jsonb, order_index integer, created_at timestamp with time zone)
@@ -2675,6 +2696,7 @@ BEGIN
 END;
 $function$;
 
+DROP FUNCTION IF EXISTS public.get_active_learning_subscription(uuid);
 CREATE OR REPLACE FUNCTION public.get_active_learning_subscription(p_user_id uuid)
  RETURNS TABLE(id uuid, plan_id uuid, status text, started_at timestamptz, expires_at timestamptz, plan_name text, features jsonb)
  LANGUAGE plpgsql

@@ -30,6 +30,7 @@ import {
   trackOperationEnd,
 } from '@/lib/uploadLock';
 import { supabase } from '@/integrations/supabase/client';
+import { toBrowserStorageUrl, storageUploadHeaders } from '@/lib/publicStorageUrl';
 
 const DB_NAME = 'proctoring-uploads-db';
 const STORE_NAME = 'pending-uploads';
@@ -418,7 +419,11 @@ async function getSignedUploadUrl(
     }
 
     logger.proctoring('[BackgroundUploader] Got signed URL for:', data.filePath);
-    return { signedUrl: data.signedUrl, filePath: data.filePath, token: data.token };
+    return {
+      signedUrl: toBrowserStorageUrl(data.signedUrl),
+      filePath: data.filePath,
+      token: data.token,
+    };
   } catch (error) {
     logger.error('[BackgroundUploader] Error getting signed URL:', error);
     return null;
@@ -494,7 +499,10 @@ function uploadDirectToStorage(
     xhr.timeout = Math.max(120000, Math.ceil(fileSizeMB / 10) * 60000);
     
     xhr.open('PUT', signedUrl);
-    xhr.setRequestHeader('Content-Type', mimeType);
+    const headers = storageUploadHeaders(mimeType);
+    for (const [key, value] of Object.entries(headers)) {
+      xhr.setRequestHeader(key, value);
+    }
     
     // Send the file data directly
     xhr.send(new Blob([fileData], { type: mimeType }));

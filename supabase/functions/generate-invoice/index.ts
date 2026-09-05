@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 import { corsHeaders } from "../_shared/cors.ts";
+import { authorizeWorkerRequest, authenticateRequest } from "../_shared/auth-utils.ts";
 
 interface GenerateInvoiceRequest {
   organizationId: string;
@@ -29,6 +30,28 @@ serve(async (req) => {
   }
 
   try {
+    // Manual invoice generation: platform_admin / partner_admin / billing_contact
+    // Cron/automation: service role or x-scheduled-secret
+    const workerAuth = await authorizeWorkerRequest(req, [
+      "platform_admin",
+      "partner_admin",
+      "billing_contact",
+    ]);
+    if (!workerAuth.authorized) {
+      // Also allow authenticated partner/billing roles via normal JWT path
+      const auth = await authenticateRequest(req.headers.get("Authorization"), [
+        "platform_admin",
+        "partner_admin",
+        "billing_contact",
+      ]);
+      if (auth.error || !auth.supabase) {
+        return new Response(JSON.stringify({ error: workerAuth.error || auth.error || "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""

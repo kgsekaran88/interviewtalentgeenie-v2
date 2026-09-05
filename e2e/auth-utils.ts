@@ -121,7 +121,8 @@ export async function expectOnAuthPage(page: Page): Promise<void> {
  */
 export async function expectAccessDenied(page: Page, path: string): Promise<void> {
   await page.goto(path);
-  await page.waitForLoadState('networkidle');
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForTimeout(1500);
 
   const url = page.url();
 

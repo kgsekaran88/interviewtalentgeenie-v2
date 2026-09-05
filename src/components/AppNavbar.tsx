@@ -46,12 +46,14 @@ import {
 import { cn } from "@/lib/utils";
 import { NotificationCenter } from "./NotificationCenter";
 import talentGeenieLogo from "@/assets/talentgeenie-logo.jpg";
+import { isFeatureEnabled } from "@/lib/featureFlags";
 
 interface NavItem {
   label: string;
   path: string;
   icon: React.ElementType;
   roles?: string[];
+  featureFlag?: "learning" | "certifications" | "ats" | "onlinePayments";
 }
 
 export const AppNavbar = () => {
@@ -191,6 +193,7 @@ export const AppNavbar = () => {
       label: "Learning Hub",
       path: "/learning",
       icon: GraduationCap,
+      featureFlag: "learning",
     },
     {
       label: "Docs",
@@ -201,6 +204,7 @@ export const AppNavbar = () => {
   ];
 
   const hasAccess = (item: NavItem) => {
+    if (item.featureFlag && !isFeatureEnabled(item.featureFlag)) return false;
     if (!item.roles || item.roles.length === 0) return true;
     return item.roles.some(role => userRoles.includes(role));
   };
@@ -396,10 +400,12 @@ export const AppNavbar = () => {
                         <User className="w-4 h-4 mr-2" />
                         My Profile
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate('/learning')}>
-                        <GraduationCap className="w-4 h-4 mr-2" />
-                        Learning Hub
-                      </DropdownMenuItem>
+                      {isFeatureEnabled('learning') && (
+                        <DropdownMenuItem onClick={() => navigate('/learning')}>
+                          <GraduationCap className="w-4 h-4 mr-2" />
+                          Learning Hub
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => navigate('/settings')}>
                         <Settings className="w-4 h-4 mr-2" />
                         Preferences

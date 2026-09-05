@@ -25,7 +25,7 @@ export default function AdvancedAnalytics() {
       const { data, error } = await supabase
         .from("organizations")
         .select("id, name")
-        .eq("status", "approved")
+        .in("status", ["approved", "active"])
         .order("name");
       if (error) throw error;
       return data;

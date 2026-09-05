@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { Loader2 } from 'lucide-react';
+import { isFeatureEnabled } from '@/lib/featureFlags';
 
 /**
  * Smart redirect component that routes users to their role-specific dashboard
@@ -37,7 +38,8 @@ export const RoleBasedRedirect = () => {
   }
   
   if (isGuest) {
-    return <Navigate to="/learning-dashboard" replace />;
+    // Learning deferred — send guests to profile until learning ships
+    return <Navigate to={isFeatureEnabled('learning') ? "/learning-dashboard" : "/profile"} replace />;
   }
 
   // Fallback for users with no roles

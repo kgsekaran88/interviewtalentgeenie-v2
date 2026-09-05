@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from '../_shared/cors.ts';
+import { authorizeWorkerRequest } from '../_shared/auth-utils.ts';
 
 
 // Maximum concurrent evaluations to process at once
@@ -11,6 +12,14 @@ const STUCK_THRESHOLD_MINUTES = 5;
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const auth = await authorizeWorkerRequest(req, ['platform_admin']);
+  if (!auth.authorized) {
+    return new Response(JSON.stringify({ error: auth.error || 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

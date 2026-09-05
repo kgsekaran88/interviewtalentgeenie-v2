@@ -20,6 +20,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
+import { toBrowserStorageUrl, storageUploadHeaders } from '@/lib/publicStorageUrl';
 
 // Configuration
 const MAX_RETRY_ATTEMPTS = 3;
@@ -184,11 +185,9 @@ export function useChunkUploader({
       }
 
       // Upload the chunk
-      const response = await fetch(urlData.signedUrl, {
+      const response = await fetch(toBrowserStorageUrl(urlData.signedUrl), {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'video/webm',
-        },
+        headers: storageUploadHeaders('video/webm'),
         body: item.blob,
       });
 
